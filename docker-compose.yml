@@ -1,0 +1,14 @@
+version: '3.8'
+services:
+  backend:
+    build: ./Backend
+    ports:
+      - "5000:80"
+  frontend:
+    build: ./Frontend
+    ports:
+      - "3000:3000"
+  ai-service:
+    build: ./AI_Module
+    ports:
+      - "8000:8000"
