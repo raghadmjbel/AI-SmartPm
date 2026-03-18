@@ -4,3 +4,4 @@ obj/
 venv/
 __pycache__/
 .env
+.vs/
