@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Mvc;
 using SmartPm.Api.Data;
 using SmartPm.Api.Models;
 using SmartPm.Api.DTOs;
+using SmartPm.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace SmartPm.Api.Controllers
 {
@@ -11,10 +13,12 @@ namespace SmartPm.Api.Controllers
     public class ProjectsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly AiService _aiService;
 
-        public ProjectsController(AppDbContext context)
+        public ProjectsController(AppDbContext context, AiService aiService)
         {
             _context = context;
+            _aiService = aiService;
         }
 
         // GET: api/projects
@@ -132,6 +136,49 @@ namespace SmartPm.Api.Controllers
             return NoContent();
         }
 
+        // POST: api/projects/{id}/analyze
+        [HttpPost("{id}/analyze")]
+        public async Task<ActionResult<AiResponseDto>> AnalyzeProject(int id, [FromBody] AiRequestDto requestPayload)
+        {
+            var project = await _context.Projects
+                .Include(p => p.ProjectSpecifications)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (project == null)
+                return NotFound("Project not found");
+
+            var combinedText = string.Join(" ", project.ProjectSpecifications
+                .SelectMany(s => new[] { s.Requirements, s.Constraints })
+                .Where(x => !string.IsNullOrWhiteSpace(x)));
+
+            var aiRequest = new AiRequestDto
+            {
+                ProjectId = id,
+                TaskDescription = string.IsNullOrWhiteSpace(requestPayload?.TaskDescription)
+                    ? combinedText
+                    : requestPayload.TaskDescription,
+                PriorityLevel = string.IsNullOrWhiteSpace(requestPayload?.PriorityLevel)
+                    ? "normal"
+                    : requestPayload.PriorityLevel
+            };
+
+            var aiResponse = await _aiService.AnalyzeAsync(aiRequest);
+
+            var artifact = new ProjectArtifact
+            {
+                ProjectId = id,
+                Type = "AI_Analysis",
+                Content = JsonSerializer.Serialize(aiResponse.Result.Analysis, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                })
+            };
+
+            _context.ProjectArtifacts.Add(artifact);
+            await _context.SaveChangesAsync();
+
+            return Ok(aiResponse);
+        }
 
         // POST: api/projects/{id}/projectspecifications
         [HttpPost("{id}/projectspecifications")]
