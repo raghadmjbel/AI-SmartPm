@@ -51,13 +51,41 @@ No tests are currently provided in this backend folder. Add an xUnit/NUnit test 
 
 ## 🔌 Endpoints
 
-- `GET /api/projects`
-- `GET /api/projects/{id}`
-- `POST /api/projects`
-- `PUT /api/projects/{id}`
-- `DELETE /api/projects/{id}`
+### Projects
 
-Adjust routes based on controller implementation.
+- GET /api/projects
+- POST /api/projects
+- GET /api/projects/{id}
+- PUT /api/projects/{id}
+- DELETE /api/projects/{id}
+- POST /api/projects/{id}/analyze
+
+### Project specifications (project-specific resource)
+
+- POST /api/projects/{id}/projectspecifications
+- DELETE /api/projects/{projectId}/projectspecifications/{specId}
+
+### Project artifacts (project-specific resource)
+
+- DELETE /api/projects/{projectId}/projectartifacts/{artifactId}
+
+## 🤖 AI Integration
+
+### New DTOs
+- `AiRequestDto` { projectId, task_description, priority_level }
+- `AiResponseDto` { status, result { projectId, analysis { priority, score, recommendation } }, metadata { model_version, timestamp } }
+
+### Service
+- `AiService` using `HttpClient` to POST `http://ai-service:8000/predict`
+- Deserializes to `AiResponseDto`
+- Throws `HttpRequestException` on non-success response
+
+### Controller
+- `POST /api/projects/{id}/analyze` loads project + specs
+- Combines requirements and constraints into one string
+- Calls `AiService.AnalyzeAsync`
+- Saves `ProjectArtifact { Type = "AI_Analysis", Content = analysisJson }`
+- Returns full AI response
 
 ## 💡 Notes
 
