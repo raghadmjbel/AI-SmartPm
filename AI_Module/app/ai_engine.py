@@ -48,10 +48,8 @@ Return ONLY JSON in this format:
 
     data = response.json()
 
-    # Extract model output
     content = data["choices"][0]["message"]["content"]
 
-    # ⚠️ IMPORTANT: model may return text → parse safely
     import json
     try:
         parsed = json.loads(content)
