@@ -124,21 +124,6 @@ th {
   color: #38bdf8;
 }
 
-.fade {
-  animation: fadeIn 0.5s ease;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 ul {
   list-style: none;
 }
@@ -150,4 +135,28 @@ ul li {
 
 ul li:last-child {
   border-bottom: none;
+}
+
+button:disabled {
+    background-color: #ccc !important;
+    cursor: not-allowed;
+}
+.fade {
+    animation: fadeIn 0.5s;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+button:disabled {
+    background-color: #ccc !important;
+    cursor: not-allowed;
+}
+.fade {
+    animation: fadeIn 0.5s;
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }

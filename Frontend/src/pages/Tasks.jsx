@@ -1,10 +1,7 @@
 import { useState } from 'react';
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState([
-    { id: 1, name: 'Task A', status: 'Pending' },
-    { id: 2, name: 'Task B', status: 'In Progress' }
-  ]);
+  const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
 
   const addTask = () => {
@@ -12,6 +9,18 @@ export default function Tasks() {
       setTasks([...tasks, { id: Date.now(), name: newTask, status: 'Pending' }]);
       setNewTask('');
     }
+  };
+
+  const generateWBS = () => {
+    const wbsTasks = [
+      { id: Date.now() + 1, name: 'Project Initiation', status: 'Pending' },
+      { id: Date.now() + 2, name: 'Requirements Gathering', status: 'Pending' },
+      { id: Date.now() + 3, name: 'Design Phase', status: 'Pending' },
+      { id: Date.now() + 4, name: 'Development', status: 'Pending' },
+      { id: Date.now() + 5, name: 'Testing', status: 'Pending' },
+      { id: Date.now() + 6, name: 'Deployment', status: 'Pending' }
+    ];
+    setTasks(wbsTasks);
   };
 
   const deleteTask = (id) => {
@@ -39,6 +48,7 @@ export default function Tasks() {
           }}
         />
         <button onClick={addTask}>Add Task</button>
+        <button onClick={generateWBS} style={{ marginLeft: '10px' }}>Generate WBS</button>
       </div>
 
       <div className="card" style={{ marginTop: '20px' }}>
