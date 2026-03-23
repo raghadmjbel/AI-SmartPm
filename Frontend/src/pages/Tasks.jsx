@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import axios from 'axios';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
@@ -21,6 +22,20 @@ export default function Tasks() {
       { id: Date.now() + 6, name: 'Deployment', status: 'Pending' }
     ];
     setTasks(wbsTasks);
+  };
+
+  const generateAIWbs = async () => {
+    try {
+      const response = await axios.post('http://192.168.x.x:5054/api/projects/1/generate/wbs');
+      const aiTasks = (response.data.data || []).map(t => ({
+        id: Date.now() + Math.random(),
+        name: t.task,
+        status: 'Pending'
+      }));
+      setTasks(prevTasks => [...prevTasks, ...aiTasks]);
+    } catch (error) {
+      alert('خطأ في الاتصال بالسيرفر!');
+    }
   };
 
   const deleteTask = (id) => {
@@ -49,6 +64,9 @@ export default function Tasks() {
         />
         <button onClick={addTask}>Add Task</button>
         <button onClick={generateWBS} style={{ marginLeft: '10px' }}>Generate WBS</button>
+        <button onClick={generateAIWbs} style={{ marginLeft: '10px', background: '#10b981' }}>
+          Generate by AI 🤖
+        </button>
       </div>
 
       <div className="card" style={{ marginTop: '20px' }}>
