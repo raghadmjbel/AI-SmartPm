@@ -1,14 +1,40 @@
 version: '3.8'
+
 services:
+  # 1. قاعدة البيانات (SQL Server) - ضرورية لربط أحمد
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: smartpm_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Pass123
+    ports:
+      - "1433:1433"
+
+  # 2. الـ Backend (شغل أحمد وتعديلاتك)
   backend:
     build: ./Backend
+    container_name: smartpm_api
     ports:
-      - "5000:80"
+      - "5054:8080" # ربط البورت اللي تعودنا عليه بداخل الحاوية
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Server=db;Database=SmartPmDb;User Id=sa;Password=YourStrong@Pass123;TrustServerCertificate=True
+    depends_on:
+      - db
+
+  # 3. الـ Frontend (شغل يمامة)
   frontend:
     build: ./Frontend
+    container_name: smartpm_web
     ports:
       - "3000:3000"
+    depends_on:
+      - backend
+
+  # 4. الـ AI Module (شغل عبد القادر)
   ai-service:
     build: ./AI_Module
+    container_name: smartpm_ai
     ports:
       - "8000:8000"
