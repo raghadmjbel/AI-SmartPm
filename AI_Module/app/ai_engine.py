@@ -1,7 +1,9 @@
 import os
 import requests
+import json
 from datetime import datetime
 from dotenv import load_dotenv
+from typing import Dict, Any
 
 load_dotenv()
 
@@ -9,10 +11,36 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 MODEL = os.getenv("OPENROUTER_MODEL")
 
 
-def call_llm(task_description: str, priority_level: str):
-    
+def call_llm(prompt: str) -> Dict[str, Any]:
     url = "https://openrouter.ai/api/v1/chat/completions"
 
+    response = requests.post(
+        url,
+        headers={
+            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": MODEL,
+            "messages": [
+                {"role": "user", "content": prompt}
+            ],
+        },
+        timeout=60,  # Increased timeout for generation
+    )
+
+    data = response.json()
+    content = data["choices"][0]["message"]["content"]
+
+    try:
+        parsed = json.loads(content)
+        return parsed
+    except:
+        # Return the raw content if not JSON
+        return {"raw_content": content}
+
+
+def call_llm_analysis(task_description: str, priority_level: str) -> Dict[str, Any]:
     prompt = f"""
 You are a senior project manager AI.
 
@@ -32,33 +60,194 @@ Return ONLY JSON in this format:
 }}
 """
 
-    response = requests.post(
-        url,
-        headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "model": MODEL,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
-        },
-        timeout=30,
-    )
+    return call_llm(prompt)
 
-    data = response.json()
 
-    content = data["choices"][0]["message"]["content"]
+def generate_wbs(scope: str, requirements: str, constraints: str) -> Dict[str, Any]:
+    prompt = f"""
+You are a senior project manager AI specializing in Work Breakdown Structure (WBS).
 
-    import json
-    try:
-        parsed = json.loads(content)
-    except:
-        parsed = {
-            "priority": "Medium",
-            "score": 0.5,
-            "recommendation": "Fallback due to parsing error"
-        }
+Create a hierarchical WBS for the following project:
 
-    return parsed
+Project Scope:
+{scope}
+
+Requirements:
+{requirements}
+
+Constraints:
+{constraints}
+
+Return ONLY JSON in this format:
+{{
+  "wbs": [
+    {{
+      "id": "1",
+      "name": "Project Phase 1",
+      "description": "Description of phase",
+      "children": [
+        {{
+          "id": "1.1",
+          "name": "Task 1.1",
+          "description": "Task description",
+          "children": []
+        }}
+      ]
+    }}
+  ]
+}}
+
+Ensure the WBS is hierarchical, logical, and covers all requirements.
+"""
+
+    return call_llm(prompt)
+
+
+def generate_tasks(scope: str, requirements: str, constraints: str) -> Dict[str, Any]:
+    prompt = f"""
+You are a senior project manager AI specializing in task breakdown.
+
+Create a detailed task list for the following project:
+
+Project Scope:
+{scope}
+
+Requirements:
+{requirements}
+
+Constraints:
+{constraints}
+
+Return ONLY JSON in this format:
+{{
+  "tasks": [
+    {{
+      "id": "T001",
+      "name": "Task Name",
+      "description": "Detailed description",
+      "duration_days": 5,
+      "priority": "High|Medium|Low",
+      "dependencies": ["T002", "T003"]
+    }}
+  ]
+}}
+
+Ensure tasks are specific, measurable, and include realistic durations.
+"""
+
+    return call_llm(prompt)
+
+
+def generate_risks(scope: str, requirements: str, constraints: str) -> Dict[str, Any]:
+    prompt = f"""
+You are a senior project manager AI specializing in risk management.
+
+Identify and assess risks for the following project:
+
+Project Scope:
+{scope}
+
+Requirements:
+{requirements}
+
+Constraints:
+{constraints}
+
+Return ONLY JSON in this format:
+{{
+  "risks": [
+    {{
+      "id": "R001",
+      "name": "Risk Name",
+      "description": "Detailed description",
+      "probability": 0.3,
+      "impact": "High|Medium|Low",
+      "mitigation": "Mitigation strategy"
+    }}
+  ]
+}}
+
+Focus on realistic risks with proper probability and impact assessment.
+"""
+
+    return call_llm(prompt)
+
+
+def generate_user_stories(scope: str, requirements: str, constraints: str) -> Dict[str, Any]:
+    prompt = f"""
+You are a senior product owner AI specializing in user story creation.
+
+Create user stories for the following project:
+
+Project Scope:
+{scope}
+
+Requirements:
+{requirements}
+
+Constraints:
+{constraints}
+
+Return ONLY JSON in this format:
+{{
+  "user_stories": [
+    {{
+      "id": "US001",
+      "role": "As a [user role]",
+      "goal": "I want [goal]",
+      "benefit": "so that [benefit]",
+      "acceptance_criteria": [
+        "Criteria 1",
+        "Criteria 2"
+      ]
+    }}
+  ]
+}}
+
+Ensure stories follow the standard format and are detailed.
+"""
+
+    return call_llm(prompt)
+
+
+def generate_gantt(scope: str, requirements: str, constraints: str) -> Dict[str, Any]:
+    prompt = f"""
+You are a senior project manager AI specializing in project scheduling.
+
+Create a Gantt chart structure for the following project:
+
+Project Scope:
+{scope}
+
+Requirements:
+{requirements}
+
+Constraints:
+{constraints}
+
+Return ONLY JSON in this format:
+{{
+  "gantt": {{
+    "tasks": [
+      {{
+        "id": "T001",
+        "name": "Task Name",
+        "start_date": "2024-01-01",
+        "end_date": "2024-01-05",
+        "dependencies": []
+      }}
+    ],
+    "milestones": [
+      {{
+        "id": "M001",
+        "name": "Milestone Name",
+        "date": "2024-01-10"
+      }}
+    ]
+  }}
+}}
+
+Ensure dates are realistic and dependencies are logical.
+"""
+
+    return call_llm(prompt)
