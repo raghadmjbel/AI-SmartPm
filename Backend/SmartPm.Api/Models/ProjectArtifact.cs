@@ -5,8 +5,10 @@ namespace SmartPm.Api.Models
         public int Id { get; set; }
         public int ProjectId { get; set; }
 
-        public string Type { get; set; } // WBS, Tasks, Gantt...
-        public string Content { get; set; } // JSON
+        public ArtifactType Type { get; set; }
+        public string ContentJson { get; set; }
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        public int Version { get; set; } = 1;
 
         public Project Project { get; set; }
     }

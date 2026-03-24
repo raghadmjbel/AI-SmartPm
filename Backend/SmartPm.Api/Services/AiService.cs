@@ -3,18 +3,21 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Options;
 using SmartPm.Api.DTOs;
+using SmartPm.Api.Options;
 
 namespace SmartPm.Api.Services
 {
     public class AiService
     {
         private readonly HttpClient _httpClient;
-        private const string AiUrl = "http://ai-service:8000/predict";
+        private readonly AIServiceOptions _aiServiceOptions;
 
-        public AiService(HttpClient httpClient)
+        public AiService(HttpClient httpClient, IOptions<AIServiceOptions> aiServiceOptions)
         {
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
+            _aiServiceOptions = aiServiceOptions?.Value ?? throw new ArgumentNullException(nameof(aiServiceOptions));
         }
 
         public async Task<AiResponseDto> AnalyzeAsync(AiRequestDto request)
@@ -28,7 +31,7 @@ namespace SmartPm.Api.Services
             });
 
             using var httpContent = new StringContent(requestJson, Encoding.UTF8, "application/json");
-            using var response = await _httpClient.PostAsync(AiUrl, httpContent);
+            using var response = await _httpClient.PostAsync($"{_aiServiceOptions.BaseUrl}/predict", httpContent);
 
             if (!response.IsSuccessStatusCode)
             {

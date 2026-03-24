@@ -34,7 +34,9 @@ namespace SmartPm.Api.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     ProjectId = table.Column<int>(type: "int", nullable: false),
                     Type = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Content = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    ContentJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Version = table.Column<int>(type: "int", nullable: false, defaultValue: 1),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false)
                 },
                 constraints: table =>
                 {

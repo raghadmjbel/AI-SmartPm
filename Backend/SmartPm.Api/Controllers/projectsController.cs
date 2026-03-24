@@ -5,6 +5,7 @@ using SmartPm.Api.DTOs;
 using SmartPm.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using System;
 
 namespace SmartPm.Api.Controllers
 {
@@ -13,12 +14,16 @@ namespace SmartPm.Api.Controllers
     public class ProjectsController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly AiService _aiService;
+        private readonly IArtifactGenerationService _artifactGenerationService;
+        private readonly IProjectContextBuilder _projectContextBuilder;
+        private readonly ILogger<ProjectsController> _logger;
 
-        public ProjectsController(AppDbContext context, AiService aiService)
+        public ProjectsController(AppDbContext context, IArtifactGenerationService artifactGenerationService, IProjectContextBuilder projectContextBuilder, ILogger<ProjectsController> logger)
         {
             _context = context;
-            _aiService = aiService;
+            _artifactGenerationService = artifactGenerationService;
+            _projectContextBuilder = projectContextBuilder;
+            _logger = logger;
         }
 
         // GET: api/projects
@@ -45,7 +50,9 @@ namespace SmartPm.Api.Controllers
                 {
                     Id = a.Id,
                     Type = a.Type,
-                    Content = a.Content
+                    ContentJson = a.ContentJson,
+                    CreatedAt = a.CreatedAt,
+                    Version = a.Version
                 }).ToList()
             });
 
@@ -78,7 +85,9 @@ namespace SmartPm.Api.Controllers
                 {
                     Id = a.Id,
                     Type = a.Type,
-                    Content = a.Content
+                    ContentJson = a.ContentJson,
+                    CreatedAt = a.CreatedAt,
+                    Version = a.Version
                 }).ToList()
             };
 
@@ -136,48 +145,157 @@ namespace SmartPm.Api.Controllers
             return NoContent();
         }
 
-        // POST: api/projects/{id}/analyze
-        [HttpPost("{id}/analyze")]
-        public async Task<ActionResult<AiResponseDto>> AnalyzeProject(int id, [FromBody] AiRequestDto requestPayload)
+        // POST: api/projects/{id}/generate/{type}
+        [HttpPost("{id}/generate/{type}")]
+        public async Task<ActionResult<ProjectArtifactDto>> GenerateArtifact(int id, string type, [FromQuery] bool force = false, CancellationToken cancellationToken = default)
         {
-            var project = await _context.Projects
-                .Include(p => p.ProjectSpecifications)
-                .FirstOrDefaultAsync(p => p.Id == id);
-
+            var project = await _context.Projects.FindAsync(id);
             if (project == null)
                 return NotFound("Project not found");
 
-            var combinedText = string.Join(" ", project.ProjectSpecifications
-                .SelectMany(s => new[] { s.Requirements, s.Constraints })
-                .Where(x => !string.IsNullOrWhiteSpace(x)));
+            if (!Enum.TryParse<ArtifactType>(type, true, out var artifactType))
+                return BadRequest("Invalid artifact type");
 
-            var aiRequest = new AiRequestDto
+            // Optional cache: if artifact already exists, return latest version directly
+            var cachedArtifact = await _context.ProjectArtifacts
+                .Where(a => a.ProjectId == id && a.Type == artifactType)
+                .OrderByDescending(a => a.Version)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (!force && cachedArtifact != null)
             {
-                ProjectId = id,
-                TaskDescription = string.IsNullOrWhiteSpace(requestPayload?.TaskDescription)
-                    ? combinedText
-                    : requestPayload.TaskDescription,
-                PriorityLevel = string.IsNullOrWhiteSpace(requestPayload?.PriorityLevel)
-                    ? "normal"
-                    : requestPayload.PriorityLevel
-            };
+                var cachedDto = new ProjectArtifactDto
+                {
+                    Id = cachedArtifact.Id,
+                    Type = cachedArtifact.Type,
+                    ContentJson = cachedArtifact.ContentJson,
+                    CreatedAt = cachedArtifact.CreatedAt,
+                    Version = cachedArtifact.Version
+                };
 
-            var aiResponse = await _aiService.AnalyzeAsync(aiRequest);
+                _logger.LogInformation("Artifact cache hit for Project {ProjectId}, type {ArtifactType}, version {Version}", id, artifactType, cachedArtifact.Version);
+                return Ok(cachedDto);
+            }
+
+
+            var context = await _projectContextBuilder.BuildContextAsync(id);
+
+            object artifactData;
+            try
+            {
+                artifactData = artifactType switch
+                {
+                    ArtifactType.WBS => await _artifactGenerationService.GenerateWbsAsync(context, cancellationToken),
+                    ArtifactType.TaskList => await _artifactGenerationService.GenerateTasksAsync(context, cancellationToken),
+                    ArtifactType.Gantt => await _artifactGenerationService.GenerateGanttAsync(context, cancellationToken),
+                    ArtifactType.RiskRegister => await _artifactGenerationService.GenerateRisksAsync(context, cancellationToken),
+                    ArtifactType.UserStories => await _artifactGenerationService.GenerateUserStoriesAsync(context, cancellationToken),
+                    _ => throw new ArgumentException("Unsupported artifact type")
+                };
+            }
+            catch (HttpRequestException ex)
+            {
+                return StatusCode(502, $"AI service error: {ex.Message}");
+            }
+            catch (OperationCanceledException)
+            {
+                return StatusCode(499, "Request cancelled");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal error: {ex.Message}");
+            }
+
+            var latestVersion = await _context.ProjectArtifacts
+                .Where(a => a.ProjectId == id && a.Type == artifactType)
+                .OrderByDescending(a => a.Version)
+                .Select(a => a.Version)
+                .FirstOrDefaultAsync();
+
+            var contentJson = JsonSerializer.Serialize(artifactData, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = false
+            });
 
             var artifact = new ProjectArtifact
             {
                 ProjectId = id,
-                Type = "AI_Analysis",
-                Content = JsonSerializer.Serialize(aiResponse.Result.Analysis, new JsonSerializerOptions
-                {
-                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-                })
+                Type = artifactType,
+                ContentJson = contentJson,
+                CreatedAt = DateTime.UtcNow,
+                Version = latestVersion + 1
             };
 
             _context.ProjectArtifacts.Add(artifact);
             await _context.SaveChangesAsync();
 
-            return Ok(aiResponse);
+            var dto = new ProjectArtifactDto
+            {
+                Id = artifact.Id,
+                Type = artifact.Type,
+                ContentJson = artifact.ContentJson,
+                CreatedAt = artifact.CreatedAt,
+                Version = artifact.Version
+            };
+
+            return CreatedAtAction(nameof(GetProject), new { id = project.Id }, dto);
+        }
+
+        // GET: api/projects/{id}/artifacts
+        [HttpGet("{id}/artifacts")]
+        public async Task<ActionResult<IEnumerable<ProjectArtifactDto>>> GetProjectArtifacts(int id, CancellationToken cancellationToken = default)
+        {
+            var project = await _context.Projects.FindAsync(id);
+            if (project == null)
+                return NotFound("Project not found");
+
+            var artifacts = await _context.ProjectArtifacts
+                .Where(a => a.ProjectId == id)
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync(cancellationToken);
+
+            var result = artifacts.Select(a => new ProjectArtifactDto
+            {
+                Id = a.Id,
+                Type = a.Type,
+                ContentJson = a.ContentJson,
+                CreatedAt = a.CreatedAt,
+                Version = a.Version
+            });
+
+            return Ok(result);
+        }
+
+        // GET: api/projects/{id}/artifacts/{type}
+        [HttpGet("{id}/artifacts/{type}")]
+        public async Task<ActionResult<ProjectArtifactDto>> GetProjectArtifact(int id, string type, CancellationToken cancellationToken = default)
+        {
+            var project = await _context.Projects.FindAsync(id);
+            if (project == null)
+                return NotFound("Project not found");
+
+            if (!Enum.TryParse<ArtifactType>(type, true, out var artifactType))
+                return BadRequest("Invalid artifact type");
+
+            var artifact = await _context.ProjectArtifacts
+                .Where(a => a.ProjectId == id && a.Type == artifactType)
+                .OrderByDescending(a => a.CreatedAt)
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (artifact == null)
+                return NotFound("Artifact not found");
+
+            var dto = new ProjectArtifactDto
+            {
+                Id = artifact.Id,
+                Type = artifact.Type,
+                ContentJson = artifact.ContentJson,
+                CreatedAt = artifact.CreatedAt,
+                Version = artifact.Version
+            };
+
+            return Ok(dto);
         }
 
         // POST: api/projects/{id}/projectspecifications

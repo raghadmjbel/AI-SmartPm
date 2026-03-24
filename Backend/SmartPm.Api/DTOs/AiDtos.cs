@@ -15,6 +15,21 @@ namespace SmartPm.Api.DTOs
         public string PriorityLevel { get; set; }
     }
 
+    public class AiFullContextDto
+    {
+        [JsonPropertyName("projectId")]
+        public int ProjectId { get; set; }
+
+        [JsonPropertyName("scope")]
+        public string Scope { get; set; }
+
+        [JsonPropertyName("requirements")]
+        public string Requirements { get; set; }
+
+        [JsonPropertyName("constraints")]
+        public string Constraints { get; set; }
+    }
+
     public class AiResponseDto
     {
         [JsonPropertyName("status")]
