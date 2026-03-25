@@ -15,39 +15,7 @@ namespace SmartPm.Api.Services
     {
         public string BuildWbsPrompt(AiFullContextDto context)
         {
-            return $@"You are a senior project manager AI specializing in Work Breakdown Structure (WBS).
-
-Create a hierarchical WBS for the following project:
-
-Project Scope:
-{context.Scope}
-
-Requirements:
-{context.Requirements}
-
-Constraints:
-{context.Constraints}
-
-Return ONLY JSON in this format:
-{{
-  ""wbs"": [
-    {{
-      ""id"": ""1"",
-      ""name"": ""Project Phase 1"",
-      ""description"": ""Description of phase"",
-      ""children"": [
-        {{
-          ""id"": ""1.1"",
-          ""name"": ""Task 1.1"",
-          ""description"": ""Task description"",
-          ""children"": []
-        }}
-      ]
-    }}
-  ]
-}}
-
-Ensure the WBS is hierarchical, logical, and covers all requirements.";
+            return $@"{context.Scope} {context.Requirements} {context.Constraints}";
         }
 
         public string BuildTasksPrompt(AiFullContextDto context)
