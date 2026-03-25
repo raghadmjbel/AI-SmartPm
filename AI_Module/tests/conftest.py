@@ -5,5 +5,5 @@ import pytest
 
 
 @pytest.fixture
-def client():
-    return TestClient(app)
+def sample_prompt():
+    return "Build a booking system with payment and chat"
