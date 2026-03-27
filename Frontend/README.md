@@ -1,66 +1,38 @@
-# AI SmartPM Frontend - React Version
+# SmartPm Frontend
 
-This is a React-based frontend for the AI SmartPM project management application.
+This is the React frontend for the SmartPm project management application.
 
-## Project Structure
+## Setup
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+3. Open your browser to `http://localhost:5173`
+
+## Environment Variables
+
+Create a `.env` file in the root of the frontend directory with:
 
 ```
-src/
-├── components/      # Reusable components (Sidebar)
-├── pages/          # Page components (Dashboard, Scope, etc.)
-├── styles/         # CSS files
-├── App.jsx         # Main app component with routing
-└── main.jsx        # Entry point
+VITE_API_BASE_URL=http://localhost:5000
 ```
 
-## Installation
-
-1. Navigate to the project directory:
-```bash
-cd react-app
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-## Running the Development Server
-
-```bash
-npm run dev
-```
-
-The application will start at `http://localhost:3000`
-
-## Building for Production
-
-```bash
-npm run build
-```
+Adjust the URL to match your backend API endpoint.
 
 ## Features
 
-- **Dashboard**: Overview of projects, tasks, and risks
-- **Scope**: Project scope definition
-- **Requirements**: Requirement management
-- **Tasks**: Task tracking and management
-- **Gantt Chart**: Project timeline visualization
-- **Risks**: Risk management and tracking
-
-## Technologies Used
-
-- React 18.2
-- React Router DOM 6.20
-- Vite 5.0
-- CSS3 for styling
+- Projects List: View all projects, create new projects, delete projects
+- Project Details: View project info, specifications, and artifacts
+- Artifact Generation: Generate AI-powered artifacts like WBS, Gantt charts, etc.
+- Specifications Management: Add and remove project specifications
 
 ## API Integration
 
-The app is configured to connect to the backend API at `http://localhost:5000` (can be modified in axios configuration).
-
-## Contributing
-
-1. Create a new branch for your feature
-2. Make your changes
-3. Submit a pull request
+The frontend integrates with the ASP.NET Core backend API. Make sure the backend is running before starting the frontend.

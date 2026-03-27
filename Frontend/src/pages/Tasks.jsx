@@ -3,6 +3,7 @@ import axios from 'axios';
 
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
+  const [wbs, setWbs] = useState([]);
   const [newTask, setNewTask] = useState('');
 
   const addTask = () => {
@@ -13,26 +14,60 @@ export default function Tasks() {
   };
 
   const generateWBS = () => {
-    const wbsTasks = [
-      { id: Date.now() + 1, name: 'Project Initiation', status: 'Pending' },
-      { id: Date.now() + 2, name: 'Requirements Gathering', status: 'Pending' },
-      { id: Date.now() + 3, name: 'Design Phase', status: 'Pending' },
-      { id: Date.now() + 4, name: 'Development', status: 'Pending' },
-      { id: Date.now() + 5, name: 'Testing', status: 'Pending' },
-      { id: Date.now() + 6, name: 'Deployment', status: 'Pending' }
+    const wbsTree = [
+      {
+        id: 1,
+        name: 'Project',
+        status: 'Pending',
+        children: [
+          {
+            id: 11,
+            name: 'Project Initiation',
+            status: 'Pending',
+            children: [
+              { id: 111, name: 'Stakeholder Analysis', status: 'Pending', children: [] },
+              { id: 112, name: 'Project Charter', status: 'Pending', children: [] }
+            ]
+          },
+          {
+            id: 12,
+            name: 'Requirements Gathering',
+            status: 'Pending',
+            children: [
+              { id: 121, name: 'Interviews', status: 'Pending', children: [] },
+              { id: 122, name: 'Workshops', status: 'Pending', children: [] }
+            ]
+          },
+          {
+            id: 13,
+            name: 'Design Phase',
+            status: 'Pending',
+            children: [
+              { id: 131, name: 'Architecture', status: 'Pending', children: [] },
+              { id: 132, name: 'UI/UX', status: 'Pending', children: [] }
+            ]
+          },
+          { id: 14, name: 'Development', status: 'Pending', children: [] },
+          { id: 15, name: 'Testing', status: 'Pending', children: [] },
+          { id: 16, name: 'Deployment', status: 'Pending', children: [] }
+        ]
+      }
     ];
-    setTasks(wbsTasks);
+    setWbs(wbsTree);
+    setTasks([].concat(...wbsTree[0].children.map(child => [{ id: child.id, name: child.name, status: child.status }])));
   };
 
   const generateAIWbs = async () => {
     try {
       const response = await axios.post('http://192.168.x.x:5054/api/projects/1/generate/wbs');
-      const aiTasks = (response.data.data || []).map(t => ({
-        id: Date.now() + Math.random(),
+      const aiTasks = (response.data.data || []).map((t, index) => ({
+        id: Date.now() + Math.random() + index,
         name: t.task,
-        status: 'Pending'
+        status: 'Pending',
+        children: t.subtasks ? t.subtasks.map((st, i) => ({ id: Date.now() + Math.random() + i, name: st.task, status: 'Pending', children: [] })) : []
       }));
-      setTasks(prevTasks => [...prevTasks, ...aiTasks]);
+      setWbs(aiTasks.length ? [{ id: Date.now(), name: 'AI Generated WBS', status: 'Pending', children: aiTasks }] : []);
+      setTasks(prevTasks => [...prevTasks, ...aiTasks.map(item => ({ id: item.id, name: item.name, status: item.status }))]);
     } catch (error) {
       alert('خطأ في الاتصال بالسيرفر!');
     }
@@ -42,6 +77,17 @@ export default function Tasks() {
     setTasks(tasks.filter(task => task.id !== id));
   };
 
+  const renderTree = (nodes, level = 0) => {
+    return nodes.map((node) => (
+      <div key={node.id} style={{ marginLeft: level * 20, borderLeft: level ? '1px solid #334155' : 'none', paddingLeft: level ? 10 : 0, marginTop: 5 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: '#0f172a', borderRadius: '6px', alignItems: 'center' }}>
+          <span>{node.name}</span>
+          <span style={{ color: node.status === 'High' ? '#ff6b6b' : node.status === 'Medium' ? '#ffa726' : '#66bb6a' }}>{node.status}</span>
+        </div>
+        {node.children && node.children.length > 0 && renderTree(node.children, level + 1)}
+      </div>
+    ));
+  };
   return (
     <div className="main fade">
       <h1>Tasks</h1>
@@ -91,6 +137,15 @@ export default function Tasks() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="card" style={{ marginTop: '20px' }}>
+        <h3>WBS Tree View</h3>
+        {wbs.length > 0 ? (
+          <div>{renderTree(wbs)}</div>
+        ) : (
+          <p style={{ color: '#94a3b8' }}>No WBS generated yet. Use Generate WBS or Generate by AI.</p>
+        )}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ This directory contains the SmartPm API backend built with .NET 10 (ASP.NET Core
 
 ## 🚀 Requirements
 
-- .NET SDK 10.0
+- .NET SDK 8.0
 - `dotnet` CLI
 - SQL Server or SQLite provider (configurable in `appsettings.json`)
 
@@ -54,20 +54,75 @@ No tests are currently provided in this backend folder. Add an xUnit/NUnit test 
 ### Projects
 
 - GET /api/projects
+  - returns list of projects with embedded specifications and artifacts.
 - POST /api/projects
+  - request JSON: `{ "name": "string", "description": "string" }`
+  - response: created `Project` object.
 - GET /api/projects/{id}
+  - returns project, specs, artifacts as `ProjectDto`.
 - PUT /api/projects/{id}
+  - request JSON: `{ "name": "string", "description": "string" }`
+  - updates fields and returns updated `Project`.
 - DELETE /api/projects/{id}
-- POST /api/projects/{id}/analyze
+  - deletes project + related specs + artifacts, returns 204.
 
-### Project specifications (project-specific resource)
+### AI Artifact Generation
+
+- POST /api/projects/{id}/generate/{type}?force={false}
+  - `type` (case-insensitive): `WBS`, `TaskList`, `Gantt`, `RiskRegister`, `UserStories`
+  - query: `force=true` bypasses cached artifact and regenerates.
+  - response: `ProjectArtifactDto` with `id`, `type`, `contentJson`, `createdAt`, `version`.
+
+### Project artifacts
+
+- GET /api/projects/{id}/artifacts
+  - list artifacts for project.
+- GET /api/projects/{id}/artifacts/{type}
+  - returns latest artifact of matching type.
+- DELETE /api/projects/{projectId}/projectartifacts/{artifactId}
+  - delete artifact by id.
+
+### Project specifications
 
 - POST /api/projects/{id}/projectspecifications
+  - request JSON: `{ "requirements": "string", "constraints": "string" }`
+  - returns created specification location (via `GetProject`).
 - DELETE /api/projects/{projectId}/projectspecifications/{specId}
+  - delete specification by id.
 
-### Project artifacts (project-specific resource)
+---
 
-- DELETE /api/projects/{projectId}/projectartifacts/{artifactId}
+## 📘 DTOs and Models
+
+- `CreateProjectDto`: `Name`, `Description`
+- `ProjectDto`: includes `Id`, `Name`, `Description`, list of `CreateProjectSpecificationDto`, list of `ProjectArtifactDto`
+- `CreateProjectSpecificationDto`: `Id`, `Requirements`, `Constraints`
+- `ProjectArtifactDto`: `Id`, `Type`, `ContentJson`, `CreatedAt`, `Version`
+
+### AI DTOs
+
+- `AiFullContextDto`:
+  - `projectId`, `scope`, `requirements`, `constraints`
+- `AiRequestDto`:
+  - `projectId`, `task_description`, `priority_level`
+- `AiResponseDto`:
+  - `status`, `result` (with `projectId`, `analysis`), `metadata` (with `model_version`, `timestamp`)
+
+## ⚙️ AI Service Behavior
+
+- AIPromptBuilder builds prompts.
+- `ArtifactGenerationService` calls configured AI base URL (`AIServiceOptions.BaseUrl` + `/generate/{artifactType}`) and uses retry/circuit-breaker.
+- Response validation via `AIResponseValidator` ensures correct artifact schema.
+
+## 🔧 Configuration
+
+### `appsettings.json` `AIServiceOptions`
+- `BaseUrl` (AI service URL)
+- `TimeoutSeconds`
+- `MaxRetries`
+
+### `launchSettings.json`
+- HTTPS and HTTP local URLs: `https://localhost:5001`, `http://localhost:5000`
 
 ## 🤖 AI Integration
 
