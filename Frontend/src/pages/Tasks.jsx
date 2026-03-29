@@ -77,6 +77,17 @@ export default function Tasks() {
     setTasks(tasks.filter(task => task.id !== id));
   };
 
+  const deleteArtifact = async (artifactId) => {
+    try {
+      await api.delete(`/projects/1/projectartifacts/${artifactId}`);
+      alert('Artifact deleted successfully');
+      // Reload tasks if needed
+    } catch (error) {
+      console.error('Failed to delete artifact', error);
+      alert('Failed to delete artifact');
+    }
+  };
+
   const renderTree = (nodes, level = 0) => {
     return nodes.map((node) => (
       <div key={node.id} style={{ marginLeft: level * 20, borderLeft: level ? '1px solid #334155' : 'none', paddingLeft: level ? 10 : 0, marginTop: 5 }}>

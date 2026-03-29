@@ -15,6 +15,12 @@ export default function Sidebar() {
         Dashboard
       </Link>
       <Link
+        to="/projects"
+        className={isActive('/projects') ? 'active' : ''}
+      >
+        Projects
+      </Link>
+      <Link
         to="/scope"
         className={isActive('/scope') ? 'active' : ''}
       >
@@ -44,6 +50,15 @@ export default function Sidebar() {
       >
         Risks
       </Link>
+
+      <div className="sidebar-divider"></div>
+
+      <button
+        className="theme-customizer-btn"
+        onClick={() => window.dispatchEvent(new CustomEvent('openThemeCustomizer'))}
+      >
+        🎨  change Theme
+      </button>
     </div>
   );
 }
