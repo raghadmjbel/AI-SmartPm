@@ -1,8 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 import json
 import logging
-from app.ai_engine import generate_gantt
-from app.generators import generate_wbs, generate_tasks, generate_risks
+from app.generators import generate_wbs, generate_tasks, generate_risks, generate_user_stories, generate_gantt
 import json
 
 # Configure logging
@@ -73,19 +72,30 @@ async def generate(artifact_type: str, request: Request):
         elif artifact_type == "gantt":
             if scope is not None and requirements is not None and constraints is not None:
                 logger.info("Using scope, requirements, constraints for gantt generation")
-                result = generate_risks(f"Scope: {scope}\nRequirements: {requirements}\nConstraints: {constraints}")
+                result = generate_gantt(f"Scope: {scope}\nRequirements: {requirements}\nConstraints: {constraints}")
             elif prompt is not None:
                 logger.info("Using prompt for gantt generation")
                 result = generate_gantt(prompt)
             else:
                 logger.error("Missing required fields for gantt generation")
                 raise HTTPException(400, "Missing required fields for gantt generation.")
+        elif artifact_type == "user_stories":
+            if scope is not None and requirements is not None and constraints is not None:
+                logger.info("Using scope, requirements, constraints for user stories generation")
+                result = generate_user_stories(f"Scope: {scope}\nRequirements: {requirements}\nConstraints: {constraints}")
+            elif prompt is not None:
+                logger.info("Using prompt for user stories generation")
+                result = generate_user_stories(prompt)
+            else:
+                logger.error("Missing required fields for user stories generation")
+                raise HTTPException(400, "Missing required fields for user stories generation.")
         else:
             logger.error(f"Invalid artifact type: {artifact_type}")
             raise HTTPException(400, "Invalid type")
 
         logger.info(f"Successfully generated {artifact_type}, result keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
         
+        logger.info(f"Result : {json.dumps(result)}") 
         response = {
             "status": "success",
             "result": json.dumps(result),  # 🔥 REQUIRED

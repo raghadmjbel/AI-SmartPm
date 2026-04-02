@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import os
 import json
 import uuid
@@ -271,108 +272,223 @@ STRICT OUTPUT RULES:
     {{
       "id": "string",
       "name": "string",
-      "durationDays": number,
-      "startDay": number,
-      "endDay": number,
+      "start_date": "string",
+      "end_date": "string",
       "dependencies": ["taskId"]
     }}
-  ]
+  ],
+  "milestones": [
+    {{
+        "id": "string",
+        "name": "string",
+        "date": "string"
+ }}
+]
 }}
 
+ if not already specified, consider today is {datetime.now().strftime("%Y-%m-%d")}
 CORE SCHEDULING RULES:
-- Project starts at day 0
-- durationDays must be > 0
-- startDay must be >= 0
-- endDay MUST equal startDay + durationDays (no exceptions)
+- Project starts today or at a specified start date
+- start_date >= today
+- end_date > start_date
+- end_date = start_date + duration_days
+- Prefer earliest valid start_date (ASAP scheduling)
 
-DEPENDENCY RULES (STRICT):
-- A task MUST NOT start before ALL its dependencies are finished
-- For every dependency D:
-  startDay(task) >= endDay(D)
+DEPENDENCY RULES:
+- Task MUST NOT start before ALL dependencies finish
+- start_date(task) >= max(end_date of all dependencies)
 - All dependencies must reference valid existing task IDs
-- DO NOT create circular dependencies
+- No circular dependencies
 
-STRUCTURE RULES:
-- Tasks belonging to the same feature/component MUST be sequential unless clearly independent
-- Independent components SHOULD run in parallel
-- Backend work should generally precede dependent frontend work
-- Integration tasks must depend on both frontend and backend completion
-
-PARALLELIZATION RULES:
-- Maximize parallel execution where logically possible
-- DO NOT serialize tasks unnecessarily
-- DO NOT make everything sequential
-- DO NOT make everything parallel
+STRUCTURE AND PARALLELIZATION:
+- Tasks in the same feature/component are sequential unless explicitly independent
+- Independent components should run in parallel if possible
+- Backend must precede dependent frontend work
+- Integration tasks depend on both backend and frontend completion
 
 REALISM RULES:
-- Follow real-world software workflow:
-  1. Requirements / Planning
-  2. Design (UI/UX, Architecture)
-  3. Backend development
-  4. Frontend development
-  5. Integration
-  6. Testing
-  7. Deployment
-- Testing must depend on all major features
-- Deployment must be the final task
+- Follow standard software workflow: Planning → Design → Backend → Frontend → Integration → Testing → Deployment
+- Testing depends on all major features
+- Deployment is final
+- Use realistic durations for each task type (Planning 5–10d, Design 10–20d, Backend 20–30d, Frontend 20–40d, Integration 5–10d, Testing 15–30d, Deployment 1–3d)
 
 CONSISTENCY RULES:
-- If tasks are provided as input:
-  - You MUST use their durationDays exactly
-  - You MUST NOT invent new tasks
-  - You MUST NOT change task names
-- If no tasks are provided:
-  - Generate realistic tasks with proper durations
+- Use provided tasks and durations exactly; do NOT invent new tasks or change names
+- If no tasks are provided, generate realistic tasks with proper durations
 
-QUALITY RULES:
-- Avoid all tasks starting at day 0
-- Avoid gaps in timeline unless necessary
-- Prefer earliest possible valid startDay (ASAP scheduling)
-- Ensure timeline is compact and efficient
+MILESTONE RULES:
+- Milestones must occur after completion of relevant tasks
+- Milestone date = latest end_date of all related tasks
 
-ANTI-PATTERNS (MUST AVOID):
-- Tasks starting before dependencies finish
-- Missing dependencies where logically required
+ANTI-PATTERNS TO AVOID:
+- Tasks starting before dependencies complete
+- Missing dependencies
+- Sequential tasks where parallel is possible
 - Overlapping tasks that should be sequential
 - Unrealistic sequencing (e.g., frontend before backend APIs exist)
 
 EXAMPLE:
-Task A (duration 3, no deps) → startDay: 0, endDay: 3
-Task B (depends on A) → startDay: 3, endDay: 6
-Task C (independent) → startDay: 0
-Task D (depends on B and C) → startDay: max(end(B), end(C))
+Task A (duration 3d, no deps) → start_date: today, end_date: today+3d
+Task B (depends on A, duration 3d) → start_date: today+3d, end_date: today+6d
+Task C (independent, duration 5d) → start_date: today
+Task D (depends on B and C, duration 4d) → start_date: max(end(B), end(C)), end_date = start_date + 4d
 """
 
     try:
         result = call_llm(prompt + "\n\n" + full_prompt)
         tasks = result.get("tasks", [])
+        milestones = result.get("milestones", [])
         logger.info(f"Generated {len(tasks) if isinstance(tasks, list) else '?'} gantt tasks")
 
-        normalized = normalize_gantt(tasks)
+        normalized = normalize_gantt(tasks, milestones)
         return normalized
 
     except Exception as e:
         logger.error(f"Error during Gantt generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"tasks": []}
-def normalize_gantt(tasks):
-    seen = set()
+        return {"gantt": []}
+def normalize_gantt(input_tasks, input_milestones=None, project_start=datetime.now().strftime("%Y-%m-%d")):
+    """
+    Normalize tasks and milestones into consistent Gantt JSON structure.
 
-    for t in tasks:
-        if not t.get("id") or t["id"] in seen:
+    input_tasks: list of dicts with optional keys: id, name, startDay, durationDays, dependencies
+    input_milestones: list of dicts with optional keys: id, name, date
+    project_start: str, starting date of project in YYYY-MM-DD
+    """
+    seen_tasks = set()
+    start_date_obj = datetime.strptime(project_start, "%Y-%m-%d")
+
+    normalized_tasks = []
+    for t in input_tasks:
+        # Unique ID
+        if not t.get("id") or t["id"] in seen_tasks:
             t["id"] = str(uuid.uuid4())
+        seen_tasks.add(t["id"])
 
-        seen.add(t["id"])
-
+        # Name
         t["name"] = t.get("name") or "Unnamed Task"
 
-        duration = max(1, int(t.get("durationDays", 1)))
-        start = max(0, int(t.get("startDay", 0)))
+    
 
-        t["durationDays"] = duration
-        t["startDay"] = start
-        t["endDay"] = start + duration
-
+        # Dependencies
         if "dependencies" not in t or t["dependencies"] is None:
             t["dependencies"] = []
 
-    return {"tasks": tasks}
+        normalized_tasks.append(t)
+
+    # Normalize milestones
+    normalized_milestones = []
+    if input_milestones:
+        seen_milestones = set()
+        for m in input_milestones:
+            if not m.get("id") or m["id"] in seen_milestones:
+                m["id"] = str(uuid.uuid4())
+            seen_milestones.add(m["id"])
+            m["name"] = m.get("name") or "Unnamed Milestone"
+
+            # Ensure date is set, default to project start if missing
+            date_str = m.get("date") or project_start
+            try:
+                datetime.strptime(date_str, "%Y-%m-%d")
+            except ValueError:
+                date_str = project_start
+            m["date"] = date_str
+
+            normalized_milestones.append(m)
+
+    return {
+        "gantt": {
+            "tasks": normalized_tasks,
+            "milestones": normalized_milestones
+        }
+    }
+        
+# =========================
+# 🧑‍💻 USER STORIES GENERATOR
+# =========================
+def generate_user_stories(prompt: str):
+    logger.info(f"Starting user stories generation with prompt length: {len(prompt)}")
+
+    full_prompt = f"""
+Generate Agile user stories for the project.
+
+STRICT RULES:
+- Return ONLY JSON (no explanations, no markdown)
+- Use EXACT format:
+{{
+  "stories": [
+    {{
+      "id": "string",
+      "role": "string",
+      "goal": "string",
+      "benefit": "string",
+      "acceptance_criteria": ["string"]
+    }}
+  ]
+}}
+
+CONTENT RULES:
+- Follow standard Agile user story format:
+- Each story must represent a SINGLE feature or functionality
+- Avoid combining multiple features in one story
+- Stories must be clear, testable, and user-focused
+- No titles, no description, strictly use the JSON format I defined above.
+
+ROLES:
+- Use realistic roles (e.g., Customer, Admin, Guest, Seller)
+- Do NOT use vague roles like "User" unless necessary
+
+ACCEPTANCE CRITERIA RULES:
+- Each story MUST have 2–5 acceptance criteria
+- Each criterion must be:
+  - specific
+  - testable
+  - measurable
+
+QUALITY RULES:
+- Avoid technical implementation details
+- Focus on business value and user outcomes
+- Cover all major system features:
+  - authentication
+  - core functionality
+  - edge cases (e.g., empty states, errors)
+
+ANTI-PATTERNS (MUST AVOID):
+- Stories without acceptance criteria
+- Vague descriptions
+- Technical tasks instead of user value
+- Duplicate or overlapping stories
+"""
+
+    try:
+        result = call_llm(prompt + "\n\n" + full_prompt)
+        stories = result.get("stories", [])
+        logger.info(f"Generated {len(stories) if isinstance(stories, list) else '?'} user stories")
+
+        normalized = normalize_user_stories(stories)
+        return normalized
+
+    except Exception as e:
+        logger.error(f"Error during user stories generation: {type(e).__name__}: {e}", exc_info=True)
+        return {"user_stories": []}
+def normalize_user_stories(stories):
+    seen = set()
+
+    for s in stories:
+        if not s.get("id") or s["id"] in seen:
+            s["id"] = str(uuid.uuid4())
+
+        seen.add(s["id"])
+
+      
+
+        if "acceptance_criteria" not in s or s["acceptance_criteria"] is None:
+            s["acceptance_criteria"] = []
+
+        # Ensure list and non-empty
+        if not isinstance(s["acceptance_criteria"], list):
+            s["acceptance_criteria"] = []
+
+        if len(s["acceptance_criteria"]) == 0:
+            s["acceptance_criteria"].append("System performs expected behavior")
+
+    return {"user_stories": stories}
