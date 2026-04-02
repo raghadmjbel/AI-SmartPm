@@ -1,5 +1,5 @@
 import pytest
-from app.generators import generate_tasks, generate_wbs, generate_risks
+from app.generators import generate_tasks, generate_wbs, generate_risks, generate_gantt
 
 
 @pytest.mark.integration
@@ -37,6 +37,35 @@ def test_real_ai_wbs():
 
     for root in result["wbs"]:
         validate(root)
+@pytest.mark.integration
+def test_real_ai_gantt():
+    prompt = "Build an e-commerce website"
+
+    result = generate_gantt(prompt)
+    print(result)
+
+    assert "tasks" in result
+    assert isinstance(result["tasks"], list)
+    assert len(result["tasks"]) > 0
+
+    ids = set()
+
+    for task in result["tasks"]:
+        assert "id" in task
+        assert "name" in task
+        assert "durationDays" in task
+        assert "startDay" in task
+        assert "endDay" in task
+        assert "dependencies" in task
+
+        assert task["id"] not in ids
+        ids.add(task["id"])
+
+        assert task["durationDays"] > 0
+        assert task["startDay"] >= 0
+        assert task["endDay"] == task["startDay"] + task["durationDays"]
+
+        assert isinstance(task["dependencies"], list)
 @pytest.mark.integration
 def test_real_ai_risks():
     prompt = "AI-based platform with external APIs"

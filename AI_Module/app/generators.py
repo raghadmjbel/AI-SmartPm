@@ -254,3 +254,125 @@ def normalize_risks(risks):
         r["probability"] = min(1, max(0, prob))
 
     return {"risks": risks}
+# =========================
+# 📊 GANTT GENERATOR
+# =========================
+def generate_gantt(prompt: str):
+    logger.info(f"Starting Gantt generation with prompt length: {len(prompt)}")
+
+    full_prompt = f"""
+Generate a Gantt chart task schedule.
+
+STRICT OUTPUT RULES:
+- Return ONLY valid JSON (no markdown, no explanations)
+- Use EXACT format:
+{{
+  "tasks": [
+    {{
+      "id": "string",
+      "name": "string",
+      "durationDays": number,
+      "startDay": number,
+      "endDay": number,
+      "dependencies": ["taskId"]
+    }}
+  ]
+}}
+
+CORE SCHEDULING RULES:
+- Project starts at day 0
+- durationDays must be > 0
+- startDay must be >= 0
+- endDay MUST equal startDay + durationDays (no exceptions)
+
+DEPENDENCY RULES (STRICT):
+- A task MUST NOT start before ALL its dependencies are finished
+- For every dependency D:
+  startDay(task) >= endDay(D)
+- All dependencies must reference valid existing task IDs
+- DO NOT create circular dependencies
+
+STRUCTURE RULES:
+- Tasks belonging to the same feature/component MUST be sequential unless clearly independent
+- Independent components SHOULD run in parallel
+- Backend work should generally precede dependent frontend work
+- Integration tasks must depend on both frontend and backend completion
+
+PARALLELIZATION RULES:
+- Maximize parallel execution where logically possible
+- DO NOT serialize tasks unnecessarily
+- DO NOT make everything sequential
+- DO NOT make everything parallel
+
+REALISM RULES:
+- Follow real-world software workflow:
+  1. Requirements / Planning
+  2. Design (UI/UX, Architecture)
+  3. Backend development
+  4. Frontend development
+  5. Integration
+  6. Testing
+  7. Deployment
+- Testing must depend on all major features
+- Deployment must be the final task
+
+CONSISTENCY RULES:
+- If tasks are provided as input:
+  - You MUST use their durationDays exactly
+  - You MUST NOT invent new tasks
+  - You MUST NOT change task names
+- If no tasks are provided:
+  - Generate realistic tasks with proper durations
+
+QUALITY RULES:
+- Avoid all tasks starting at day 0
+- Avoid gaps in timeline unless necessary
+- Prefer earliest possible valid startDay (ASAP scheduling)
+- Ensure timeline is compact and efficient
+
+ANTI-PATTERNS (MUST AVOID):
+- Tasks starting before dependencies finish
+- Missing dependencies where logically required
+- Overlapping tasks that should be sequential
+- Unrealistic sequencing (e.g., frontend before backend APIs exist)
+
+EXAMPLE:
+Task A (duration 3, no deps) → startDay: 0, endDay: 3
+Task B (depends on A) → startDay: 3, endDay: 6
+Task C (independent) → startDay: 0
+Task D (depends on B and C) → startDay: max(end(B), end(C))
+"""
+
+    try:
+        result = call_llm(prompt + "\n\n" + full_prompt)
+        tasks = result.get("tasks", [])
+        logger.info(f"Generated {len(tasks) if isinstance(tasks, list) else '?'} gantt tasks")
+
+        normalized = normalize_gantt(tasks)
+        return normalized
+
+    except Exception as e:
+        logger.error(f"Error during Gantt generation: {type(e).__name__}: {e}", exc_info=True)
+        return {"tasks": []}
+def normalize_gantt(tasks):
+    seen = set()
+
+    for t in tasks:
+        if not t.get("id") or t["id"] in seen:
+            t["id"] = str(uuid.uuid4())
+
+        seen.add(t["id"])
+
+        t["name"] = t.get("name") or "Unnamed Task"
+
+        duration = max(1, int(t.get("durationDays", 1)))
+        start = max(0, int(t.get("startDay", 0)))
+
+        t["durationDays"] = duration
+        t["startDay"] = start
+        t["endDay"] = start + duration
+
+        if "dependencies" not in t or t["dependencies"] is None:
+            t["dependencies"] = []
+
+    return {"tasks": tasks}

@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 import json
 import logging
+from app.ai_engine import generate_gantt
 from app.generators import generate_wbs, generate_tasks, generate_risks
 import json
 
@@ -69,7 +70,16 @@ async def generate(artifact_type: str, request: Request):
             else:
                 logger.error("Missing required fields for risks generation")
                 raise HTTPException(400, "Missing required fields for risks generation.")
-
+        elif artifact_type == "gantt":
+            if scope is not None and requirements is not None and constraints is not None:
+                logger.info("Using scope, requirements, constraints for gantt generation")
+                result = generate_risks(f"Scope: {scope}\nRequirements: {requirements}\nConstraints: {constraints}")
+            elif prompt is not None:
+                logger.info("Using prompt for gantt generation")
+                result = generate_gantt(prompt)
+            else:
+                logger.error("Missing required fields for gantt generation")
+                raise HTTPException(400, "Missing required fields for gantt generation.")
         else:
             logger.error(f"Invalid artifact type: {artifact_type}")
             raise HTTPException(400, "Invalid type")
