@@ -12,32 +12,39 @@ MODEL = os.getenv("OPENROUTER_MODEL")
 
 
 def call_llm(prompt: str) -> Dict[str, Any]:
+    import logging
+    logger = logging.getLogger("app.ai_engine")
     url = "https://openrouter.ai/api/v1/chat/completions"
 
-    response = requests.post(
+    try:
+      response = requests.post(
         url,
         headers={
-            "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-            "Content-Type": "application/json",
+          "Authorization": f"Bearer {OPENROUTER_API_KEY}",
+          "Content-Type": "application/json",
         },
         json={
-            "model": MODEL,
-            "messages": [
-                {"role": "user", "content": prompt}
-            ],
+          "model": MODEL,
+          "messages": [
+            {"role": "user", "content": prompt}
+          ],
         },
-        timeout=60,  # Increased timeout for generation
-    )
-
-    data = response.json()
-    content = data["choices"][0]["message"]["content"]
-
-    try:
-        parsed = json.loads(content)
-        return parsed
-    except:
-        # Return the raw content if not JSON
-        return {"raw_content": content}
+        timeout=60
+      )
+      logger.info(f"OpenRouter status: {response.status_code}")
+      data = response.json()
+      if "choices" not in data or not data["choices"]:
+        logger.error(f"OpenRouter error or unexpected response: {data}")
+        return {"error": "OpenRouter error", "details": data}
+      content = data["choices"][0]["message"]["content"]
+      try:
+        return json.loads(content)
+      except Exception as e:
+        logger.error(f"Failed to parse LLM content as JSON: {content}")
+        return {"raw": content, "error": str(e)}
+    except Exception as e:
+      logger.error(f"Exception during OpenRouter call: {e}")
+      return {"error": "Exception during OpenRouter call", "details": str(e)}
 
 
 def call_llm_analysis(task_description: str, priority_level: str) -> Dict[str, Any]:

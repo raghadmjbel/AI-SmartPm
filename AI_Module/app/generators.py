@@ -4,11 +4,21 @@ import uuid
 import requests
 import google.generativeai as genai
 from dotenv import load_dotenv
+import logging
 
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 MODEL = os.getenv("GOOGLE_MODEL", "gemini-1.5-flash")
+
+if not GOOGLE_API_KEY:
+    logger.warning("GOOGLE_API_KEY environment variable not set!")
+else:
+    logger.info(f"GOOGLE_API_KEY is set. Model: {MODEL}")
 
 genai.configure(api_key=GOOGLE_API_KEY)
 
@@ -17,12 +27,14 @@ genai.configure(api_key=GOOGLE_API_KEY)
 # 🔹 CORE LLM CALL (GEMINI)
 # =========================
 def call_llm(prompt: str) -> dict:
+    logger.info(f"Calling Gemini API with model: {MODEL}, prompt length: {len(prompt)}")
     model = genai.GenerativeModel(MODEL)
 
     try:
-        response = model.generate_content(prompt)
+        response = model.generate_content(prompt, request_options={"timeout": 45})
 
         content = response.text.strip()
+        logger.info(f"Received response from Gemini, content length: {len(content)}")
 
         # Gemini sometimes wraps JSON in ```json
         if content.startswith("```"):
@@ -30,16 +42,22 @@ def call_llm(prompt: str) -> dict:
             if content.startswith("json"):
                 content = content[4:]
         
-        return json.loads(content)
+        parsed = json.loads(content)
+        logger.info(f"Parsed JSON successfully, keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'not a dict'}")
+        return parsed
 
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse JSON from Gemini response: {e}")
+        return {}
     except Exception as e:
-        print("LLM Error:", e)
+        logger.error(f"LLM Error: {type(e).__name__}: {e}", exc_info=True)
         return {}
 
 # =========================
 # 🧱 WBS GENERATOR
 # =========================
 def generate_wbs(prompt: str):
+    logger.info(f"Starting WBS generation with prompt length: {len(prompt)}")
     full_prompt = f"""
 You are a senior project manager with expertise in software engineering and system design.
 
@@ -89,9 +107,24 @@ STRUCTURE RULES:
 - Each parent must have at least 2 children when possible
 """
 
-    result = call_llm(prompt + "\n\n" + full_prompt)
-
-    return normalize_wbs(result.get("wbs", []))
+    try:
+        logger.info("Calling LLM to generate WBS")
+        result = call_llm(prompt + "\n\n" + full_prompt)
+        logger.info(f"LLM returned result with keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
+        
+        if not isinstance(result, dict):
+            logger.error(f"LLM returned non-dict result: {type(result)}")
+            return {"wbs": []}
+        
+        wbs_list = result.get("wbs", [])
+        logger.info(f"Extracting WBS list, count: {len(wbs_list) if isinstance(wbs_list, list) else 'not a list'}")
+        
+        normalized = normalize_wbs(wbs_list)
+        logger.info(f"Normalized WBS, final structure keys: {list(normalized.keys())}")
+        return normalized
+    except Exception as e:
+        logger.error(f"Error during WBS generation: {type(e).__name__}: {e}", exc_info=True)
+        return {"wbs": []}
 
 
 def normalize_wbs(wbs):
@@ -121,6 +154,7 @@ def normalize_wbs(wbs):
 # 📋 TASKS GENERATOR
 # =========================
 def generate_tasks(prompt: str):
+    logger.info(f"Starting tasks generation with prompt length: {len(prompt)}")
     full_prompt = f"""
 Generate project tasks.
 
@@ -139,9 +173,16 @@ STRICT RULES:
 - durationDays must be > 0
 """
 
-    result = call_llm(prompt + "\n\n" + full_prompt)
-
-    return normalize_tasks(result.get("tasks", []))
+    try:
+        result = call_llm(prompt + "\n\n" + full_prompt)
+        tasks = result.get("tasks", [])
+        logger.info(f"Generated {len(tasks) if isinstance(tasks, list) else '?'} tasks")
+        normalized = normalize_tasks(tasks)
+        logger.info(f"Normalized tasks, count: {len(normalized.get('tasks', []))}")
+        return normalized
+    except Exception as e:
+        logger.error(f"Error during tasks generation: {type(e).__name__}: {e}", exc_info=True)
+        return {"tasks": []}
 
 
 def normalize_tasks(tasks):
@@ -165,6 +206,7 @@ def normalize_tasks(tasks):
 # ⚠️ RISKS GENERATOR
 # =========================
 def generate_risks(prompt: str):
+    logger.info(f"Starting risks generation with prompt length: {len(prompt)}")
     full_prompt = f"""
 Generate project risks.
 
@@ -183,9 +225,16 @@ STRICT RULES:
 - probability must be between 0 and 1
 """
 
-    result = call_llm(prompt + "\n\n" + full_prompt)
-
-    return normalize_risks(result.get("risks", []))
+    try:
+        result = call_llm(prompt + "\n\n" + full_prompt)
+        risks = result.get("risks", [])
+        logger.info(f"Generated {len(risks) if isinstance(risks, list) else '?'} risks")
+        normalized = normalize_risks(risks)
+        logger.info(f"Normalized risks, count: {len(normalized.get('risks', []))}")
+        return normalized
+    except Exception as e:
+        logger.error(f"Error during risks generation: {type(e).__name__}: {e}", exc_info=True)
+        return {"risks": []}
 
 
 def normalize_risks(risks):

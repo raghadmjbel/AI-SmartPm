@@ -92,16 +92,34 @@ export default function ProjectDetails() {
               <div className="card">
                 <ArtifactGenerator projectId={id} refresh={loadArtifacts} />
 
-                {artifacts.map((a) => (
-                  <div key={a.id} className="card">
-                    <p><b>Type:</b> {a.type}</p>
-                    <p><b>Version:</b> {a.version}</p>
+                {artifacts.map((a) => {
+                  const typeNames = {
+                    0: "WBS",
+                    1: "TaskList",
+                    2: "Gantt",
+                    3: "RiskRegister",
+                    4: "UserStories",
+                    5: "AIAnalysis",
+                  };
+                  const typeName = typeNames[a.type] || `Type ${a.type}`;
 
-                    {a.type === "WBS" && (
-                      <WbsTree data={JSON.parse(a.contentJson)} />
-                    )}
-                  </div>
-                ))}
+                  return (
+                    <div key={a.id} className="card">
+                      <p><b>Type:</b> {typeName}</p>
+                      <p><b>Version:</b> {a.version}</p>
+
+                      {a.type === 0 && (() => {
+                        try {
+                          const parsed = JSON.parse(a.contentJson);
+                          return <WbsTree data={parsed.wbs || parsed} />;
+                        } catch (e) {
+                          console.error("Failed to parse WBS data:", e);
+                          return <p>Invalid WBS data</p>;
+                        }
+                      })()}
+                    </div>
+                  );
+                })}
               </div>
             ),
           },

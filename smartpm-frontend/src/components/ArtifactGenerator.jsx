@@ -6,7 +6,6 @@ const types = [
   "Gantt",
   "RiskRegister",
   "UserStories",
-  "TestCases",
 ];
 
 export default function ArtifactGenerator({ projectId, refresh }) {
