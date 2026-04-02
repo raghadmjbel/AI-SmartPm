@@ -89,7 +89,7 @@ namespace SmartPm.Api.Services
         public async Task<UserStoriesDto> GenerateUserStoriesAsync(AiFullContextDto context, CancellationToken cancellationToken = default)
         {
             _logger.LogInformation("Generating user stories for project {ProjectId}", context.ProjectId);
-            var result = await GenerateArtifactAsync<UserStoriesDto>(context, "user-stories", _promptBuilder.BuildUserStoriesPrompt(context), _responseValidator.TryValidateUserStoriesResponse, cancellationToken);
+            var result = await GenerateArtifactAsync<UserStoriesDto>(context, "user_stories", _promptBuilder.BuildUserStoriesPrompt(context), _responseValidator.TryValidateUserStoriesResponse, cancellationToken);
             _logger.LogInformation("User stories generated successfully for project {ProjectId}", context.ProjectId);
             return result;
         }
