@@ -67,6 +67,21 @@ export default function GanttChart({ data }) {
     ];
   }, [tasks]);
 
+  const chartHeight = useMemo(
+    () => `${Math.max(450, tasks.length * 48)}px`,
+    [tasks]
+  );
+
+  const chartWidth = useMemo(() => {
+    const startDates = tasks.map((t) => t.start.getTime());
+    const endDates = tasks.map((t) => t.end.getTime());
+    const minStart = Math.min(...startDates, Date.now());
+    const maxEnd = Math.max(...endDates, minStart + 86400000);
+    const daysSpan = Math.max(1, Math.ceil((maxEnd - minStart) / 86400000));
+    const width = Math.min(3000, Math.max(1000, daysSpan * 30 + 500));
+    return `${width}px`;
+  }, [tasks]);
+
   /* ================= EXPORT EXCEL ================= */
   const exportToExcel = () => {
     const sheet = [
@@ -150,36 +165,41 @@ export default function GanttChart({ data }) {
           background: "rgb(30,41,59)",
           borderRadius: "12px",
           padding: "10px",
+          maxHeight: fullscreen ? "calc(100vh - 150px)" : "70vh",
+          overflowY: "auto",
+          overflowX: "auto",
         }}
       >
-        <Chart
-          chartType="Gantt"
-          width="100%"
-          height="450px"
-          data={chartData}
-          options={{
-            gantt: {
-              trackHeight: 38,
-              barHeight: 18,
-              labelStyle: {
-                fontName: "Arial",
-                fontSize: 12,
-                bold: true, // ✅ make label bold
-                color: "#e2e8f0",
+        <div style={{ minHeight: "450px", minWidth: chartWidth }}>
+          <Chart
+            chartType="Gantt"
+            width={chartWidth}
+            height={chartHeight}
+            data={chartData}
+            options={{
+              gantt: {
+                trackHeight: 38,
+                barHeight: 18,
+                labelStyle: {
+                  fontName: "Arial",
+                  fontSize: 12,
+                  bold: true, // ✅ make label bold
+                  color: "#e2e8f0",
+                },
+                criticalPathEnabled: true, // highlight critical path
+                percentEnabled: true,
               },
-              criticalPathEnabled: true, // highlight critical path
-              percentEnabled: true,
-            },
-            hAxis: {
-              format: "dd MMM yyyy", // ✅ full date display
-              textStyle: {
-                fontName: "Arial",
-                bold: true,
-                color: "#e2e8f0",
+              hAxis: {
+                format: "dd MMM yyyy", // ✅ full date display
+                textStyle: {
+                  fontName: "Arial",
+                  bold: true,
+                  color: "#e2e8f0",
+                },
               },
-            },
-          }}
-        />
+            }}
+          />
+        </div>
       </div>
     </div>
   );

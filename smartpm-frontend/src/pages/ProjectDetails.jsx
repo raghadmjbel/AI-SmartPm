@@ -13,7 +13,7 @@ import WbsTree from "../components/WbsTree";
 import Tabs from "../components/Tabs";
 import GanttChart from "../components/GanttChart";
 
-export default function ProjectDetails() {
+export default function ProjectDetails({ user, onLogout }) {
   const { id } = useParams();
 
   const [project, setProject] = useState(null);
@@ -58,7 +58,26 @@ const copyTasks = (tasks) => {
 
   return (
     <div className="container">
-      <h1>📁 Project Dashboard</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
+        <div>
+          <h1>📁 Project Dashboard</h1>
+          <p style={{ margin: 0, color: "#94a3b8" }}>Welcome, {user?.username}</p>
+        </div>
+        <button
+          onClick={onLogout}
+          style={{
+            border: "none",
+            borderRadius: "12px",
+            padding: "10px 16px",
+            background: "#ef4444",
+            color: "white",
+            cursor: "pointer",
+            fontWeight: 700,
+          }}
+        >
+          Logout
+        </button>
+      </div>
 
       {/* Project Info */}
       <div className="card">
