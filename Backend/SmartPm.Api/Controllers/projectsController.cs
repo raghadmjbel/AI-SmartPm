@@ -201,7 +201,7 @@ namespace SmartPm.Api.Controllers
             }
 
 
-            var context = await _projectContextBuilder.BuildContextAsync(id);
+            var context = await _projectContextBuilder.BuildContextAsync(id, artifactType);
 
             object artifactData;
             try

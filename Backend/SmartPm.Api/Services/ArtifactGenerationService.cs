@@ -113,7 +113,6 @@ namespace SmartPm.Api.Services
             if (context == null)
                 throw new ArgumentNullException(nameof(context));
 
-            // ✅ SIMPLE PROMPT (no builder anymore)
             var prompt = $"{context.Scope} {context.Requirements} {context.Constraints}";
 
             var requestPayload = new
@@ -122,7 +121,8 @@ namespace SmartPm.Api.Services
                 projectId = context.ProjectId,
                 scope = context.Scope,
                 requirements = context.Requirements,
-                constraints = context.Constraints
+                constraints = context.Constraints,
+                contextArtifacts = context.ContextArtifacts.Select(a => new { type = a.Type, content = a.Content })
             };
 
             var requestJson = JsonSerializer.Serialize(requestPayload, new JsonSerializerOptions

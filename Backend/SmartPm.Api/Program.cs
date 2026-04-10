@@ -82,7 +82,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddScoped<IArtifactGenerationService, ArtifactGenerationService>();
 builder.Services.AddScoped<IProjectContextBuilder, ProjectContextBuilder>();
-builder.Services.AddScoped<IAIPromptBuilder, AIPromptBuilder>();
 builder.Services.AddScoped<IAIResponseValidator, AIResponseValidator>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddHttpClient();
