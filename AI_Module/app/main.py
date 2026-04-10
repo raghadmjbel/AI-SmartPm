@@ -31,7 +31,7 @@ async def generate(artifact_type: str, request: Request):
     scope = get_field("scope")
     requirements = get_field("requirements")
     constraints = get_field("constraints")
-
+    context_data = get_field("contextArtifacts") or "None provided"
     logger.info(f"Extracted fields - scope: {'present' if scope else 'missing'}, requirements: {'present' if requirements else 'missing'}, constraints: {'present' if constraints else 'missing'}, prompt: {'present' if prompt else 'missing'}")
 
     try:

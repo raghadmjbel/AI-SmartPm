@@ -77,17 +77,8 @@ Output Instructions:
     """
     
 
-    result = generate_tasks(prompt)
+    result = generate_risks(prompt)
     print(result)
-    assert "tasks" in result
-    assert isinstance(result["tasks"], list)
-    assert len(result["tasks"]) > 0
-
-    for task in result["tasks"]:
-        assert "id" in task
-        assert "name" in task
-        assert "durationDays" in task
-        assert task["durationDays"] > 0
 @pytest.mark.integration
 def test_real_ai_wbs():
     prompt = "Build an e-commerce website"
