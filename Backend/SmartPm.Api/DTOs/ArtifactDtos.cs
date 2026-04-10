@@ -40,7 +40,7 @@ namespace SmartPm.Api.DTOs
         [JsonPropertyName("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("duration_days")]
+        [JsonPropertyName("durationDays")]
         public int DurationDays { get; set; }
 
         [JsonPropertyName("priority")]

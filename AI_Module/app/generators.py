@@ -1,3 +1,14 @@
+<<<<<<< HEAD
+=======
+from datetime import datetime, timedelta
+import os
+import json
+import uuid
+import requests
+import time
+import google.generativeai as genai
+from dotenv import load_dotenv
+>>>>>>> c7267938b8a8033242579aa007ab2b51edc19c70
 import logging
 from app.context_appender import appendPreviousArtificats
 from app.response_normalizer import normalize_tasks, normalize_wbs, normalize_gantt, normalize_user_stories, normalize_risks
@@ -11,7 +22,67 @@ logger = logging.getLogger(__name__)
 # =========================
 #  WBS GENERATOR
 # =========================
+<<<<<<< HEAD
 def generate_wbs(prompt: str, context_data=None):
+=======
+def call_llm(prompt: str, max_retries: int = 3) -> dict:
+    """
+    Call Gemini API with retry logic for transient failures.
+    
+    Args:
+        prompt: The prompt to send to the API
+        max_retries: Maximum number of retry attempts (default: 3)
+    
+    Returns:
+        Parsed JSON response or empty dict on failure
+    """
+    model = genai.GenerativeModel(MODEL)
+    
+    for attempt in range(max_retries):
+        try:
+            logger.info(f"Calling Gemini API (attempt {attempt + 1}/{max_retries}), model: {MODEL}, prompt length: {len(prompt)}")
+            response = model.generate_content(prompt, request_options={"timeout": 120})
+
+            content = response.text.strip()
+            logger.info(f"Received response from Gemini, content length: {len(content)}")
+
+            # Gemini sometimes wraps JSON in ```json
+            if content.startswith("```"):
+                content = content.split("```")[1]
+                if content.startswith("json"):
+                    content = content[4:]
+            
+            parsed = json.loads(content)
+            logger.info(f"Parsed JSON successfully, keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'not a dict'}")
+            return parsed
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse JSON from Gemini response (attempt {attempt + 1}): {e}")
+            if attempt == max_retries - 1:
+                return {}
+                
+        except (TimeoutError, Exception) as e:
+            error_name = type(e).__name__
+            is_deadline = "DeadlineExceeded" in error_name or "Deadline" in str(e)
+            
+            logger.warning(f"API call failed (attempt {attempt + 1}/{max_retries}): {error_name}: {e}")
+            
+            if attempt < max_retries - 1:
+                # Exponential backoff: 1s, 2s, 4s
+                wait_time = 2 ** attempt
+                logger.info(f"Retrying in {wait_time} seconds...")
+                time.sleep(wait_time)
+            else:
+                logger.error(f"LLM Error after {max_retries} attempts: {error_name}: {e}", exc_info=True)
+                return {}
+    
+    return {}
+
+# =========================
+# 🧱 WBS GENERATOR
+# =========================
+def generate_wbs(prompt: str):
+>>>>>>> c7267938b8a8033242579aa007ab2b51edc19c70
     logger.info(f"Starting WBS generation with prompt length: {len(prompt)}")
     full_prompt = build_wbs_prompt()
     full_prompt = appendPreviousArtificats('WBS', context_data, full_prompt)
