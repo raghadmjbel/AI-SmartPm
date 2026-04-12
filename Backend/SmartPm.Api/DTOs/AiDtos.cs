@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace SmartPm.Api.DTOs
@@ -29,18 +28,6 @@ namespace SmartPm.Api.DTOs
 
         [JsonPropertyName("constraints")]
         public string Constraints { get; set; }
-
-        [JsonPropertyName("contextArtifacts")]
-        public List<ContextArtifactDto> ContextArtifacts { get; set; } = new();
-    }
-
-    public class ContextArtifactDto
-    {
-        [JsonPropertyName("type")]
-        public string Type { get; set; }
-
-        [JsonPropertyName("content")]
-        public string Content { get; set; }
     }
 
     public class AiResponseDto

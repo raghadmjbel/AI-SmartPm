@@ -1,12 +1,9 @@
-using System.Text;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using SmartPm.Api.Services;
-using SmartPm.Api.Options;
-using SmartPm.Api.Data;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using SmartPm.Api.Data;
+using SmartPm.Api.Options;
+using SmartPm.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -62,28 +59,10 @@ builder.Services.AddRateLimiter(options =>
             });
     });
 });
-
-// JWT Authentication
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-    .AddJwtBearer(options =>
-    {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = true,
-            ValidateAudience = true,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"],
-            ValidAudience = builder.Configuration["Jwt:Audience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"] ?? "default-secret-key"))
-        };
-    });
-
-builder.Services.AddAuthorization();
 builder.Services.AddScoped<IArtifactGenerationService, ArtifactGenerationService>();
 builder.Services.AddScoped<IProjectContextBuilder, ProjectContextBuilder>();
+builder.Services.AddScoped<IAIPromptBuilder, AIPromptBuilder>();
 builder.Services.AddScoped<IAIResponseValidator, AIResponseValidator>();
-builder.Services.AddScoped<JwtService>();
 builder.Services.AddHttpClient();
 builder.Services.Configure<AIServiceOptions>(
     builder.Configuration.GetSection("AIService")
@@ -115,8 +94,7 @@ app.UseRateLimiter();
 // CORS
 app.UseCors("AllowAll");
 
-// Authentication & Authorization
-app.UseAuthentication();
+// Authorization
 app.UseAuthorization();
 
 // Map Controllers

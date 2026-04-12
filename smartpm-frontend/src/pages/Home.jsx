@@ -3,7 +3,7 @@ import { getProjects } from "../api/projectApi";
 import ProjectForm from "../components/ProjectForm";
 import ProjectList from "../components/ProjectList";
 
-export default function Home({ user, onLogout }) {
+export default function Home() {
   const [projects, setProjects] = useState([]);
 
   const loadProjects = async () => {
@@ -27,16 +27,8 @@ export default function Home({ user, onLogout }) {
 
       {/* Content */}
       <div className="container">
-        <div className="topbar">
-          <div>
-            <h1 className="title">Smart PM (Team 5)</h1>
-            <h5 className="subtitle1">Welcome back, {user?.username}</h5>
-          </div>
-          <button className="logout" onClick={onLogout}>
-            Logout
-          </button>
-        </div>
-
+        <h1 className="title">Smart PM (Team 5)</h1>
+        <h5 className="subtitle1">Dr.Anas is the Best Dr</h5>
         <p className="subtitle">
           Manage projects, specs, and AI-generated artifacts
         </p>
@@ -141,25 +133,9 @@ export default function Home({ user, onLogout }) {
           margin-top: 0px;
         }
         .subtitle1 {
-          text-align: left;
+          text-align: center;
           color: #94a3b8;
           margin: 0px;
-        }
-        .topbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          gap: 16px;
-          margin-bottom: 12px;
-        }
-        .logout {
-          border: none;
-          border-radius: 12px;
-          padding: 12px 18px;
-          background: #ef4444;
-          color: #fff;
-          cursor: pointer;
-          font-weight: 700;
         }
 
         .card {

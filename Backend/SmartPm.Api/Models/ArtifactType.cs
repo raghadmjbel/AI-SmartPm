@@ -7,5 +7,6 @@ namespace SmartPm.Api.Models
         Gantt,
         RiskRegister,
         UserStories,
+        AIAnalysis
     }
 }
