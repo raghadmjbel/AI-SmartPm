@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { generateArtifact } from "../api/projectApi";
 
 const types = [

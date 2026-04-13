@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartPm.Api.Data;
 
@@ -11,9 +12,11 @@ using SmartPm.Api.Data;
 namespace SmartPm.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260409160714_AddUserAuth")]
+    partial class AddUserAuth
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,12 +44,7 @@ namespace SmartPm.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("UserId");
 
                     b.ToTable("Projects");
                 });
@@ -143,17 +141,6 @@ namespace SmartPm.Api.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("SmartPm.Api.Models.Project", b =>
-                {
-                    b.HasOne("SmartPm.Api.Models.User", "User")
-                        .WithMany("Projects")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("SmartPm.Api.Models.ProjectArtifact", b =>
                 {
                     b.HasOne("SmartPm.Api.Models.Project", "Project")
@@ -181,11 +168,6 @@ namespace SmartPm.Api.Migrations
                     b.Navigation("ProjectArtifacts");
 
                     b.Navigation("ProjectSpecifications");
-                });
-
-            modelBuilder.Entity("SmartPm.Api.Models.User", b =>
-                {
-                    b.Navigation("Projects");
                 });
 #pragma warning restore 612, 618
         }

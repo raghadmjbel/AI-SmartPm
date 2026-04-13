@@ -40,7 +40,7 @@ namespace SmartPm.Api.DTOs
         [JsonPropertyName("description")]
         public string Description { get; set; }
 
-        [JsonPropertyName("duration_days")]
+        [JsonPropertyName("durationDays")]
         public int DurationDays { get; set; }
 
         [JsonPropertyName("priority")]
@@ -67,6 +67,15 @@ namespace SmartPm.Api.DTOs
         [JsonPropertyName("description")]
         public string Description { get; set; }
 
+        [JsonPropertyName("related_task_id")]
+        public string RelatedTaskId { get; set; }
+
+        [JsonPropertyName("category")]
+        public string Category { get; set; }
+
+        [JsonPropertyName("owner")]
+        public string Owner { get; set; }
+
         [JsonPropertyName("probability")]
         public double Probability { get; set; }
 
@@ -75,6 +84,12 @@ namespace SmartPm.Api.DTOs
 
         [JsonPropertyName("mitigation")]
         public string Mitigation { get; set; }
+
+        [JsonPropertyName("mitigation_plan")]
+        public string MitigationPlan { get; set; }
+
+        [JsonPropertyName("contingency_plan")]
+        public string ContingencyPlan { get; set; }
     }
 
     public class UserStoriesDto

@@ -6,11 +6,14 @@ using SmartPm.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace SmartPm.Api.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
+    [Authorize]
     public class ProjectsController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -26,11 +29,23 @@ namespace SmartPm.Api.Controllers
             _logger = logger;
         }
 
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out var userId))
+            {
+                throw new UnauthorizedAccessException("Invalid user token");
+            }
+            return userId;
+        }
+
         // GET: api/projects
         [HttpGet]
         public async Task<ActionResult<IEnumerable<ProjectDto>>> GetProjects()
         {
+            var userId = GetCurrentUserId();
             var projects = await _context.Projects
+                .Where(p => p.UserId == userId)
                 .Include(p => p.ProjectSpecifications)
                 .Include(p => p.ProjectArtifacts)
                 .ToListAsync();
@@ -63,7 +78,9 @@ namespace SmartPm.Api.Controllers
         [HttpGet("{id}")]
         public async Task<ActionResult<ProjectDto>> GetProject(int id)
         {
+            var userId = GetCurrentUserId();
             var p = await _context.Projects
+                .Where(p => p.UserId == userId)
                 .Include(p => p.ProjectSpecifications)
                 .Include(p => p.ProjectArtifacts)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -98,11 +115,13 @@ namespace SmartPm.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<Project>> CreateProject(CreateProjectDto dto)
         {
+            var userId = GetCurrentUserId();
             var project = new Project
             {
                 Name = dto.Name,
                 Description = dto.Description,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                UserId = userId
             };
 
             _context.Projects.Add(project);
@@ -115,7 +134,8 @@ namespace SmartPm.Api.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<Project>> UpdateProject(int id, CreateProjectDto dto)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var userId = GetCurrentUserId();
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (project == null) return NotFound("Project not found");
 
             project.Name = dto.Name;
@@ -129,7 +149,9 @@ namespace SmartPm.Api.Controllers
         [HttpDelete("{id}")]
         public async Task<ActionResult> DeleteProject(int id)
         {
+            var userId = GetCurrentUserId();
             var project = await _context.Projects
+                .Where(p => p.UserId == userId)
                 .Include(p => p.ProjectSpecifications)
                 .Include(p => p.ProjectArtifacts)
                 .FirstOrDefaultAsync(p => p.Id == id);
@@ -149,7 +171,8 @@ namespace SmartPm.Api.Controllers
         [HttpPost("{id}/generate/{type}")]
         public async Task<ActionResult<ProjectArtifactDto>> GenerateArtifact(int id, string type, [FromQuery] bool force = false, CancellationToken cancellationToken = default)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var userId = GetCurrentUserId();
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (project == null)
                 return NotFound("Project not found");
 
@@ -178,7 +201,7 @@ namespace SmartPm.Api.Controllers
             }
 
 
-            var context = await _projectContextBuilder.BuildContextAsync(id);
+            var context = await _projectContextBuilder.BuildContextAsync(id, artifactType);
 
             object artifactData;
             try
@@ -192,6 +215,10 @@ namespace SmartPm.Api.Controllers
                     ArtifactType.UserStories => await _artifactGenerationService.GenerateUserStoriesAsync(context, cancellationToken),
                     _ => throw new ArgumentException("Unsupported artifact type")
                 };
+            }
+            catch (ArtifactGenerationService.AiServiceException ex)
+            {
+                return StatusCode((int)ex.StatusCode, $"AI service error: {ex.Message}");
             }
             catch (HttpRequestException ex)
             {
@@ -212,6 +239,7 @@ namespace SmartPm.Api.Controllers
                 .Select(a => a.Version)
                 .FirstOrDefaultAsync();
 
+            
             var contentJson = JsonSerializer.Serialize(artifactData, new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -246,7 +274,8 @@ namespace SmartPm.Api.Controllers
         [HttpGet("{id}/artifacts")]
         public async Task<ActionResult<IEnumerable<ProjectArtifactDto>>> GetProjectArtifacts(int id, CancellationToken cancellationToken = default)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var userId = GetCurrentUserId();
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (project == null)
                 return NotFound("Project not found");
 
@@ -271,7 +300,8 @@ namespace SmartPm.Api.Controllers
         [HttpGet("{id}/artifacts/{type}")]
         public async Task<ActionResult<ProjectArtifactDto>> GetProjectArtifact(int id, string type, CancellationToken cancellationToken = default)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var userId = GetCurrentUserId();
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (project == null)
                 return NotFound("Project not found");
 
@@ -302,7 +332,8 @@ namespace SmartPm.Api.Controllers
         [HttpPost("{id}/projectspecifications")]
         public async Task<ActionResult<ProjectSpecification>> AddProjectSpecification(int id, CreateProjectSpecificationDto dto)
         {
-            var project = await _context.Projects.FindAsync(id);
+            var userId = GetCurrentUserId();
+            var project = await _context.Projects.FirstOrDefaultAsync(p => p.Id == id && p.UserId == userId);
             if (project == null) return NotFound("Project not found");
 
             var spec = new ProjectSpecification
@@ -329,8 +360,10 @@ namespace SmartPm.Api.Controllers
         [HttpDelete("{projectId}/projectspecifications/{specId}")]
         public async Task<ActionResult> DeleteProjectSpecification(int projectId, int specId)
         {
+            var userId = GetCurrentUserId();
             var spec = await _context.ProjectSpecifications
-                .FirstOrDefaultAsync(s => s.Id == specId && s.ProjectId == projectId);
+                .Include(s => s.Project)
+                .FirstOrDefaultAsync(s => s.Id == specId && s.ProjectId == projectId && s.Project.UserId == userId);
             if (spec == null) return NotFound("Specification not found");
 
             _context.ProjectSpecifications.Remove(spec);
@@ -343,8 +376,10 @@ namespace SmartPm.Api.Controllers
         [HttpDelete("{projectId}/projectartifacts/{artifactId}")]
         public async Task<ActionResult> DeleteProjectArtifact(int projectId, int artifactId)
         {
+            var userId = GetCurrentUserId();
             var artifact = await _context.ProjectArtifacts
-                .FirstOrDefaultAsync(a => a.Id == artifactId && a.ProjectId == projectId);
+                .Include(a => a.Project)
+                .FirstOrDefaultAsync(a => a.Id == artifactId && a.ProjectId == projectId && a.Project.UserId == userId);
             if (artifact == null) return NotFound("Artifact not found");
 
             _context.ProjectArtifacts.Remove(artifact);

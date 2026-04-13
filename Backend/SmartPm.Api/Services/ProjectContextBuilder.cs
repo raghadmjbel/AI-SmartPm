@@ -7,7 +7,7 @@ namespace SmartPm.Api.Services
 {
     public interface IProjectContextBuilder
     {
-        Task<AiFullContextDto> BuildContextAsync(int projectId);
+        Task<AiFullContextDto> BuildContextAsync(int projectId, ArtifactType? excludeArtifactType = null);
     }
 
     public class ProjectContextBuilder : IProjectContextBuilder
@@ -19,7 +19,7 @@ namespace SmartPm.Api.Services
             _context = context;
         }
 
-        public async Task<AiFullContextDto> BuildContextAsync(int projectId)
+        public async Task<AiFullContextDto> BuildContextAsync(int projectId, ArtifactType? excludeArtifactType = null)
         {
             var project = await _context.Projects
                 .Include(p => p.ProjectSpecifications)
@@ -36,12 +36,28 @@ namespace SmartPm.Api.Services
                 .Select(s => s.Constraints)
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
 
-            return new AiFullContextDto // no !!
+            var contextArtifactsData = await _context.ProjectArtifacts
+                .Where(a => a.ProjectId == projectId && (!excludeArtifactType.HasValue || a.Type != excludeArtifactType.Value))
+                .OrderByDescending(a => a.Version)
+                .ToListAsync();
+
+            var contextArtifacts = contextArtifactsData
+                .GroupBy(a => a.Type)
+                .Select(g => g.First())
+                .Select(a => new ContextArtifactDto
+                {
+                    Type = a.Type.ToString(),
+                    Content = a.ContentJson
+                })
+                .ToList();
+
+            return new AiFullContextDto
             {
                 ProjectId = projectId,
                 Scope = project.Description ?? "",
                 Requirements = requirements,
-                Constraints = constraints
+                Constraints = constraints,
+                ContextArtifacts = contextArtifacts
             };
         }
     }

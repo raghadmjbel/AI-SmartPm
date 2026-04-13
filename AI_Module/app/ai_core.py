@@ -1,6 +1,7 @@
 import os
 import json
 import google.generativeai as genai
+from google.api_core.exceptions import ResourceExhausted
 from dotenv import load_dotenv
 import logging
 load_dotenv()
@@ -18,6 +19,14 @@ else:
     logger.info(f"GOOGLE_API_KEY is set. Model: {MODEL}")
 
 genai.configure(api_key=GOOGLE_API_KEY)
+
+
+class LlmError(RuntimeError):
+    pass
+
+
+class LlmRateLimitError(LlmError):
+    pass
 
 
 # =========================
@@ -44,8 +53,11 @@ def call_llm(prompt: str) -> dict:
         return parsed
 
     except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse JSON from Gemini response: {e}")
-        return {}
+        logger.error(f"Failed to parse JSON from Gemini response: {e}", exc_info=True)
+        raise LlmError(f"Failed to parse JSON from Gemini response: {e}") from e
+    except ResourceExhausted as e:
+        logger.error(f"LLM rate limit exceeded: {e}", exc_info=True)
+        raise LlmRateLimitError(f"LLM rate limit exceeded: {e}") from e
     except Exception as e:
         logger.error(f"LLM Error: {type(e).__name__}: {e}", exc_info=True)
-        return {}
+        raise LlmError(f"LLM Error: {type(e).__name__}: {e}") from e
