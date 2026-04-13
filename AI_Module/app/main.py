@@ -2,7 +2,7 @@ from fastapi import FastAPI, HTTPException, Request
 import json
 import logging
 from app.generators import generate_wbs, generate_tasks, generate_risks, generate_user_stories, generate_gantt
-import json
+from app.ai_core import LlmError, LlmRateLimitError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -107,7 +107,15 @@ async def generate(artifact_type: str, request: Request):
         return response
     except HTTPException:
         raise
+    except LlmRateLimitError as e:
+        import traceback
+        logger.error(f"AI Module rate limit exception: {traceback.format_exc()}")
+        raise HTTPException(429, f"AI service quota exceeded: {e}")
+    except LlmError as e:
+        import traceback
+        logger.error(f"AI Module exception: {traceback.format_exc()}")
+        raise HTTPException(502, f"AI service error: {e}")
     except Exception as e:
         import traceback
-        logger.error(f"AI Module Exception: {traceback.format_exc()}")
+        logger.error(f"AI Module exception: {traceback.format_exc()}")
         raise HTTPException(500, f"AI Module error: {e}")

@@ -19,14 +19,13 @@ def generate_wbs(prompt: str, context_data=None):
     try:
         logger.info("Calling LLM to generate WBS")
 
-
         result = call_llm(prompt + "\n\n" + full_prompt)
         
         logger.info(f"LLM returned result with keys: {list(result.keys()) if isinstance(result, dict) else 'not a dict'}")
         
         if not isinstance(result, dict):
             logger.error(f"LLM returned non-dict result: {type(result)}")
-            return {"wbs": []}
+            raise ValueError("LLM returned non-dict result")
         
         wbs_list = result.get("wbs", [])
         logger.info(f"Extracting WBS list, count: {len(wbs_list) if isinstance(wbs_list, list) else 'not a list'}")
@@ -36,7 +35,7 @@ def generate_wbs(prompt: str, context_data=None):
         return normalized
     except Exception as e:
         logger.error(f"Error during WBS generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"wbs": []}
+        raise
 
 
 
@@ -60,7 +59,7 @@ def generate_tasks(prompt: str, context_data=None):
         return normalized
     except Exception as e:
         logger.error(f"Error during tasks generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"tasks": []}
+        raise
 
 
 
@@ -84,7 +83,7 @@ def generate_risks(prompt: str, context_data=None):
         return normalized
     except Exception as e:
         logger.error(f"Error during risks generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"risks": []}
+        raise
 
 
 
@@ -109,7 +108,7 @@ def generate_gantt(prompt: str,  context_data=None):
 
     except Exception as e:
         logger.error(f"Error during Gantt generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"gantt": []}
+        raise
 
 # =========================
 #  USER STORIES GENERATOR
@@ -130,4 +129,4 @@ def generate_user_stories(prompt: str, context_data=None):
 
     except Exception as e:
         logger.error(f"Error during user stories generation: {type(e).__name__}: {e}", exc_info=True)
-        return {"user_stories": []}
+        raise
