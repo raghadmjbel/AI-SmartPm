@@ -9,5 +9,6 @@ namespace SmartPm.Api.DTOs
 		public string ContentJson { get; set; }
 		public DateTime CreatedAt { get; set; }
 		public int Version { get; set; }
+		public string CacheStatus { get; set; }
 	}
 }

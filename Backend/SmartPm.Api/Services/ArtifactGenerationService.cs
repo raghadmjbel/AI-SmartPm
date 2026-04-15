@@ -133,6 +133,7 @@ namespace SmartPm.Api.Services
             {
                 prompt = prompt,
                 projectId = context.ProjectId,
+                projectName = context.ProjectName,
                 scope = context.Scope,
                 requirements = context.Requirements,
                 constraints = context.Constraints,

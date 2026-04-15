@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
 using System;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Caching.Distributed;
 using System.Security.Claims;
 
 namespace SmartPm.Api.Controllers
@@ -19,13 +20,15 @@ namespace SmartPm.Api.Controllers
         private readonly AppDbContext _context;
         private readonly IArtifactGenerationService _artifactGenerationService;
         private readonly IProjectContextBuilder _projectContextBuilder;
+        private readonly IDistributedCache _cache;
         private readonly ILogger<ProjectsController> _logger;
 
-        public ProjectsController(AppDbContext context, IArtifactGenerationService artifactGenerationService, IProjectContextBuilder projectContextBuilder, ILogger<ProjectsController> logger)
+        public ProjectsController(AppDbContext context, IArtifactGenerationService artifactGenerationService, IProjectContextBuilder projectContextBuilder, IDistributedCache cache, ILogger<ProjectsController> logger)
         {
             _context = context;
             _artifactGenerationService = artifactGenerationService;
             _projectContextBuilder = projectContextBuilder;
+            _cache = cache;
             _logger = logger;
         }
 
@@ -179,29 +182,47 @@ namespace SmartPm.Api.Controllers
             if (!Enum.TryParse<ArtifactType>(type, true, out var artifactType))
                 return BadRequest("Invalid artifact type");
 
-            // Optional cache: if artifact already exists, return latest version directly
-            var cachedArtifact = await _context.ProjectArtifacts
-                .Where(a => a.ProjectId == id && a.Type == artifactType)
-                .OrderByDescending(a => a.Version)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (!force && cachedArtifact != null)
-            {
-                var cachedDto = new ProjectArtifactDto
-                {
-                    Id = cachedArtifact.Id,
-                    Type = cachedArtifact.Type,
-                    ContentJson = cachedArtifact.ContentJson,
-                    CreatedAt = cachedArtifact.CreatedAt,
-                    Version = cachedArtifact.Version
-                };
-
-                _logger.LogInformation("Artifact cache hit for Project {ProjectId}, type {ArtifactType}, version {Version}", id, artifactType, cachedArtifact.Version);
-                return Ok(cachedDto);
-            }
-
-
             var context = await _projectContextBuilder.BuildContextAsync(id, artifactType);
+            var cacheKey = ArtifactCacheKeyHelper.BuildKey(id, artifactType, context);
+
+            if (!force)
+            {
+                try
+                {
+                    var cachedJson = await _cache.GetStringAsync(cacheKey, cancellationToken);
+                    if (!string.IsNullOrWhiteSpace(cachedJson))
+                    {
+                        _logger.LogInformation("Redis cache hit for Project {ProjectId}, type {ArtifactType}", id, artifactType);
+                        var cachedItem = JsonSerializer.Deserialize<ProjectArtifactCacheDto>(cachedJson, new JsonSerializerOptions
+                        {
+                            PropertyNameCaseInsensitive = true
+                        });
+
+                        if (cachedItem != null)
+                        {
+                            return Ok(new ProjectArtifactDto
+                            {
+                                Id = cachedItem.Id,
+                                Type = cachedItem.Type,
+                                ContentJson = cachedItem.ContentJson,
+                                CreatedAt = cachedItem.CreatedAt,
+                                Version = cachedItem.Version,
+                                CacheStatus = "HIT"
+                            });
+                        }
+                    }
+
+                    _logger.LogInformation("Redis cache miss for Project {ProjectId}, type {ArtifactType}", id, artifactType);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Redis cache error for Project {ProjectId}, type {ArtifactType}", id, artifactType);
+                }
+            }
+            else
+            {
+                _logger.LogInformation("Cache force=true for Project {ProjectId}, type {ArtifactType}; skipping Redis lookup", id, artifactType);
+            }
 
             object artifactData;
             try
@@ -258,16 +279,44 @@ namespace SmartPm.Api.Controllers
             _context.ProjectArtifacts.Add(artifact);
             await _context.SaveChangesAsync();
 
-            var dto = new ProjectArtifactDto
+            var cacheEntry = new ProjectArtifactCacheDto
             {
                 Id = artifact.Id,
+                ProjectId = id,
                 Type = artifact.Type,
                 ContentJson = artifact.ContentJson,
                 CreatedAt = artifact.CreatedAt,
                 Version = artifact.Version
             };
 
-            return CreatedAtAction(nameof(GetProject), new { id = project.Id }, dto);
+            try
+            {
+                var cacheJson = JsonSerializer.Serialize(cacheEntry, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                await _cache.SetStringAsync(cacheKey, cacheJson, new DistributedCacheEntryOptions
+                {
+                    AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(1)
+                }, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to update Redis cache for Project {ProjectId}, type {ArtifactType}", id, artifactType);
+            }
+
+            var dto = new ProjectArtifactDto
+            {
+                Id = artifact.Id,
+                Type = artifact.Type,
+                ContentJson = artifact.ContentJson,
+                CreatedAt = artifact.CreatedAt,
+                Version = artifact.Version,
+                CacheStatus = force ? "FORCED" : "MISS"
+            };
+
+            return Ok(dto);
         }
 
         // GET: api/projects/{id}/artifacts

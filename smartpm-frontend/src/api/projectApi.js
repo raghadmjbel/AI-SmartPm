@@ -21,7 +21,7 @@ export const deleteSpecification = (projectId, specId) =>
   api.delete(`/Projects/${projectId}/projectspecifications/${specId}`);
 
 export const generateArtifact = (id, type) =>
-  api.post(`/Projects/${id}/generate/${type}?force=true`);
+  api.post(`/Projects/${id}/generate/${type}`);
 
 export const getArtifacts = (id) =>
   api.get(`/Projects/${id}/artifacts`);

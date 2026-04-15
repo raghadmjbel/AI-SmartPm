@@ -21,6 +21,9 @@ namespace SmartPm.Api.DTOs
         [JsonPropertyName("projectId")]
         public int ProjectId { get; set; }
 
+        [JsonPropertyName("projectName")]
+        public string ProjectName { get; set; }
+
         [JsonPropertyName("scope")]
         public string Scope { get; set; }
 
