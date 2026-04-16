@@ -10,10 +10,16 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.SetMinimumLevel(LogLevel.Information);
+
 #region Services
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(
+        builder.Configuration.GetConnectionString("DefaultConnection"),
+        sql => sql.EnableRetryOnFailure(5, TimeSpan.FromSeconds(10), null)));
 
 // Controllers
 builder.Services.AddControllers();
@@ -85,6 +91,11 @@ builder.Services.AddScoped<IProjectContextBuilder, ProjectContextBuilder>();
 builder.Services.AddScoped<IAIResponseValidator, AIResponseValidator>();
 builder.Services.AddScoped<JwtService>();
 builder.Services.AddHttpClient();
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration["Redis:ConnectionString"] ?? "localhost:6379";
+    options.InstanceName = builder.Configuration["Redis:InstanceName"] ?? "SmartPm:";
+});
 builder.Services.Configure<AIServiceOptions>(
     builder.Configuration.GetSection("AIService")
 );
@@ -93,6 +104,21 @@ builder.Services.Configure<AIServiceOptions>(
 #region App Build
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    try
+    {
+        dbContext.Database.Migrate();
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "Database migration failed");
+        throw; // STOP the app if migration fails
+    }
+}
 
 #endregion
 

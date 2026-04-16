@@ -12,8 +12,8 @@ using SmartPm.Api.Data;
 namespace SmartPm.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260324141330_AddVersionToProjectArtifacts")]
-    partial class AddVersionToProjectArtifacts
+    [Migration("20260414185418_InitialClean")]
+    partial class InitialClean
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -44,7 +44,12 @@ namespace SmartPm.Api.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Projects");
                 });
@@ -107,6 +112,51 @@ namespace SmartPm.Api.Migrations
                     b.ToTable("ProjectSpecifications");
                 });
 
+            modelBuilder.Entity("SmartPm.Api.Models.User", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
+                        .IsUnique();
+
+                    b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("SmartPm.Api.Models.Project", b =>
+                {
+                    b.HasOne("SmartPm.Api.Models.User", "User")
+                        .WithMany("Projects")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("SmartPm.Api.Models.ProjectArtifact", b =>
                 {
                     b.HasOne("SmartPm.Api.Models.Project", "Project")
@@ -134,6 +184,11 @@ namespace SmartPm.Api.Migrations
                     b.Navigation("ProjectArtifacts");
 
                     b.Navigation("ProjectSpecifications");
+                });
+
+            modelBuilder.Entity("SmartPm.Api.Models.User", b =>
+                {
+                    b.Navigation("Projects");
                 });
 #pragma warning restore 612, 618
         }

@@ -29,11 +29,13 @@ namespace SmartPm.Api.Services
                 throw new ArgumentException("Project not found", nameof(projectId));
 
             var requirements = string.Join(" ", project.ProjectSpecifications
-                .Select(s => s.Requirements)
+                .OrderBy(s => s.Id)
+                .Select(s => s.Requirements?.Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
 
             var constraints = string.Join(" ", project.ProjectSpecifications
-                .Select(s => s.Constraints)
+                .OrderBy(s => s.Id)
+                .Select(s => s.Constraints?.Trim())
                 .Where(x => !string.IsNullOrWhiteSpace(x)));
 
             var contextArtifactsData = await _context.ProjectArtifacts
@@ -54,7 +56,8 @@ namespace SmartPm.Api.Services
             return new AiFullContextDto
             {
                 ProjectId = projectId,
-                Scope = project.Description ?? "",
+                ProjectName = project.Name ?? string.Empty,
+                Scope = project.Description ?? string.Empty,
                 Requirements = requirements,
                 Constraints = constraints,
                 ContextArtifacts = contextArtifacts

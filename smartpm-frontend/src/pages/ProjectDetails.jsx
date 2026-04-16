@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
 import {
@@ -19,15 +19,25 @@ export default function ProjectDetails({ user, onLogout }) {
   const [project, setProject] = useState(null);
   const [artifacts, setArtifacts] = useState([]);
   const [collapsedTables, setCollapsedTables] = useState({});
+  const artifactsTopRef = useRef(null);
 
   const load = async () => {
     const res = await getProject(id);
     setProject(res.data);
   };
 
-  const loadArtifacts = async () => {
+  const loadArtifacts = async (scrollToTop = false) => {
     const res = await getArtifacts(id);
-    setArtifacts(res.data);
+    const sortedArtifacts = [...res.data].sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return dateB - dateA;
+    });
+    setArtifacts(sortedArtifacts);
+
+    if (scrollToTop && artifactsTopRef.current) {
+      artifactsTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   };
 
   useEffect(() => {
@@ -90,7 +100,7 @@ const copyUserStories = (stories) => {
     <div className="container">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "16px", marginBottom: "10px" }}>
         <div>
-          <h1>📁 Project Dashboard</h1>
+          <h1> Project Dashboard</h1>
           <p style={{ margin: 0, color: "#94a3b8" }}>Welcome, {user?.username}</p>
         </div>
         <button
@@ -118,7 +128,7 @@ const copyUserStories = (stories) => {
       <Tabs
         tabs={[
           {
-            label: "📌 Overview",
+            label: "Overview",
             content: (
               <div className="card">
                 <h3>Project Summary</h3>
@@ -147,9 +157,9 @@ const copyUserStories = (stories) => {
           },
 
           {
-            label: "🤖 Artifacts",
+            label: "Artifacts",
             content: (
-              <div className="card">
+              <div className="card" ref={artifactsTopRef}>
                 <ArtifactGenerator projectId={id} refresh={loadArtifacts} />
 
                 {artifacts.map((a) => {
